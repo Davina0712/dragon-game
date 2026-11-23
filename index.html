@@ -7019,9 +7019,19 @@ document.body.insertAdjacentHTML('beforeend', `<div id="qrBox" class="overlay"><
 $('fileSaveBtn').parentElement.insertAdjacentHTML('afterend', '<div class="row2"><button id="qrBtn">📱 Show QR code (for iPad or phone)</button></div>');
 $('qrBtn').onclick = async () => {
   try {
-    const code = await makeCodeShort(), url = GAME_URL + '#save=' + encodeURIComponent(code);
-    const q = qrcode(0, 'L'); q.addData(url, 'Byte'); q.make();
-    const n = q.getModuleCount(), cell = Math.max(3, Math.floor(Math.min(520, Math.min(W, H) - 120)/(n + 8))), c = $('qrCanvas'), size = (n + 8)*cell;
+    // try smaller and smaller saves until one fits in a QR code:
+    // 1) everyone  2) just the player who is playing now  3) that player without the meadow/room bookkeeping
+    const me = PLAYER.id, pack = async (d) => { const json = JSON.stringify(d); return typeof CompressionStream === 'function' ? 'DRAGON2:' + b64u(await squeeze(json)) + '.' : 'DRAGON1:' + btoa(unescape(encodeURIComponent(json))); };
+    const all = codeData(), mine = {...all, players: all.players.filter((p, i) => profiles.list[i].id === me)};
+    const tiny = JSON.parse(JSON.stringify(mine)); for (const pl of tiny.players){ const o = pl.pet || {}; for (const k of ['daily', 'shows', 'meadowFocus', 'roomFocus', 'trophyLog', 'log', 'history', 'msgs', 'messages']) delete o[k]; }
+    let q = null, used = '';
+    for (const [d, label] of (profiles.list.length === 1 ? [[all, 'all'], [tiny, 'tiny']] : [[mine, 'me'], [tiny, 'tiny']])){
+      const url = GAME_URL + '#save=' + encodeURIComponent(await pack(d));
+      try { const t = qrcode(0, 'L'); t.addData(url, 'Byte'); t.make(); if (t.getModuleCount() > 141) continue; q = t; used = label; break; } catch(e) {}
+    }
+    if (!q) throw new Error('too big');
+    $('qrMsg').innerHTML = (used === 'all' ? '' : `This QR code has <b>${esc(profiles.list.find(p => p.id === me).name)}</b> (the player playing now). `) + 'On the iPad, open the <b>Camera</b> 📷 and point it at this code. Tap the yellow link that pops up. The game opens and asks to add your players!';
+    const n = q.getModuleCount(), cell = Math.max(4, Math.floor(Math.min(720, Math.min(W, H) - 90)/(n + 8))), c = $('qrCanvas'), size = (n + 8)*cell;
     c.width = size; c.height = size; c.style.width = size + 'px'; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, size, size); g.fillStyle = '#000';
     for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect((k + 4)*cell, (r + 4)*cell, cell, cell);
     $('qrBox').classList.add('open');
@@ -7029,11 +7039,58 @@ $('qrBtn').onclick = async () => {
 };
 $('qrClose').onclick = () => $('qrBox').classList.remove('open');
 // opening the game from a QR code: offer to add the players
-(async () => { try {
+function checkQrLink(){ try {
   const m = /[#&]save=([^&]+)/.exec(location.hash); if (!m) return;
   const code = decodeURIComponent(m[1]); history.replaceState(null, '', location.pathname + location.search);
   setTimeout(() => { openProfiles(); showCode('📱 Found players from a QR code! Tap "Add these players" to add them.', code, true); }, 600);
-} catch(e) {} })();
+} catch(e) {} }
+checkQrLink();
+addEventListener('hashchange', checkQrLink);   // the game was already open in this tab
+// 📱 big saves: split into several small QR codes ("part 1 of 3"), and put them back together on the iPad
+const QR_PART = 700;
+let qrParts = null, qrPartI = 0;
+function drawQr(url){
+  const q = qrcode(0, 'M'); q.addData(url, 'Byte'); q.make();
+  const n = q.getModuleCount(), cell = Math.max(4, Math.floor(Math.min(720, Math.min(W, H) - 120)/(n + 8))), c = $('qrCanvas'), size = (n + 8)*cell;
+  c.width = size; c.height = size; c.style.width = size + 'px'; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, size, size); g.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect((k + 4)*cell, (r + 4)*cell, cell, cell);
+}
+function showQrPart(){
+  const n = qrParts.length; drawQr(qrParts[qrPartI]);
+  $('qrMsg').innerHTML = n === 1 ? 'On the iPad, open the <b>Camera</b> 📷 and point it at this code. Tap the yellow link that pops up. The game opens and asks to add your players!'
+    : `<b style="font-size:18px">Part ${qrPartI + 1} of ${n}</b><br>Scan it with the iPad <b>Camera</b> 📷 and tap the yellow link. Then come back here and tap <b>Next ▶</b>. After the last part, the iPad asks to add your players!`;
+  $('qrNav').style.display = n > 1 ? '' : 'none'; $('qrPrev').disabled = qrPartI === 0; $('qrNext').textContent = qrPartI === n - 1 ? 'All done ✅' : 'Next ▶';
+}
+$('qrClose').insertAdjacentHTML('beforebegin', '<span id="qrNav"><button id="qrPrev">◀ Back</button> <button id="qrNext">Next ▶</button></span>');
+$('qrPrev').onclick = () => { if (qrPartI > 0){ qrPartI--; showQrPart(); } };
+$('qrNext').onclick = () => { if (qrPartI < qrParts.length - 1){ qrPartI++; showQrPart(); } else $('qrBox').classList.remove('open'); };
+$('qrBtn').onclick = async () => {
+  try {
+    const me = PLAYER.id, all = codeData(), mine = {...all, players: all.players.filter((p, i) => profiles.list[i].id === me)};
+    const json = JSON.stringify(profiles.list.length === 1 ? all : mine);
+    const code = typeof CompressionStream === 'function' ? 'DRAGON2:' + b64u(await squeeze(json)) + '.' : 'DRAGON1:' + btoa(unescape(encodeURIComponent(json)));
+    if (code.length <= QR_PART) qrParts = [GAME_URL + '#save=' + encodeURIComponent(code)];
+    else { const id = Math.random().toString(36).slice(2, 7), n = Math.ceil(code.length/QR_PART); qrParts = [];
+      for (let k = 0; k < n; k++) qrParts.push(GAME_URL + '#savepart=' + id + '.' + (k + 1) + '.' + n + '.' + encodeURIComponent(code.slice(k*QR_PART, (k + 1)*QR_PART))); }
+    qrPartI = 0; showQrPart(); $('qrBox').classList.add('open');
+  } catch(e) { showCode('Hmm, the QR code did not work. Try "💾 Save code as a file" instead.', '', false); }
+};
+// on the iPad: collect the parts
+function checkQrParts(){ try {
+  const m = /[#&]savepart=([a-z0-9]+)\.(\d+)\.(\d+)\.([^&]+)/.exec(location.hash); if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  const [, id, k, n] = m, key = 'qrParts:' + id, got = readJSON(key) || {};
+  got[k] = decodeURIComponent(m[4]); try { localStorage.setItem(key, JSON.stringify(got)); } catch(e) {}
+  const have = Object.keys(got).length, total = +n;
+  setTimeout(() => {
+    openProfiles();
+    if (have < total){ const missing = []; for (let i = 1; i <= total; i++) if (!got[i]) missing.push(i);
+      showCode(`📱 Got part ${k} of ${total}! ✅ Now scan part ${missing[0]} on the Mac. (Still need: ${missing.join(', ')})`, '', false); }
+    else { let code = ''; for (let i = 1; i <= total; i++) code += got[i]; try { localStorage.removeItem(key); } catch(e) {}
+      showCode('📱 Got all the parts! 🎉 Tap "Add these players" to add them.', code, true); }
+  }, 600);
+} catch(e) {} }
+checkQrParts(); addEventListener('hashchange', checkQrParts);
 
 // The game moves in fixed steps of 1/60 second by the real clock, so it runs at the same speed
 // on every screen (60 Hz, 120 Hz iPads and phones, or slower devices).
@@ -7047,7 +7104,7 @@ const STEP = 1000/60; let lastTs = performance.now(), acc = 0;
 document.addEventListener('visibilitychange', () => { if (document.hidden){ savePet(); save(); } });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 // 🔄 auto-update: whenever the app is opened or comes back, check Netlify for a newer version and reload into it
-const APP_BUILD = '24';
+const APP_BUILD = '25';
 function checkForUpdate(){
   if (!location.protocol.startsWith('http') || !navigator.onLine) return;
   fetch('./index.html?check=' + Date.now(), {cache: 'no-store'}).then(r => r.text()).then(html => {
