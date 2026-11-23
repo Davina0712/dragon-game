@@ -6989,6 +6989,24 @@ addEventListener('pointerdown', e => {
     ctx.globalAlpha = 1;
     ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y0 + 2, 42 + Math.sin(t*8)*4, 6, 0, 0, 7); ctx.stroke(); ctx.restore();
   }; }
+// 💾 save code as a FILE (easy to AirDrop), and 📂 open a save file on the other device
+$('exportBtn').parentElement.insertAdjacentHTML('afterend', '<div class="row2"><button id="fileSaveBtn">💾 Save code as a file</button><button id="fileOpenBtn">📂 Open a save file</button><input id="fileOpenIn" type="file" accept=".txt,text/plain" style="display:none"></div>');
+$('fileSaveBtn').onclick = async () => {
+  try {
+    const code = await makeCodeShort(), name = 'dragon-save-' + new Date().toISOString().slice(0, 10) + '.txt';
+    const blob = new Blob([code], {type: 'text/plain'});
+    // phones and iPads: open the Share sheet (AirDrop, Files, Messages…)
+    if (navigator.canShare && navigator.share){ const f = new File([blob], name, {type: 'text/plain'}); if (navigator.canShare({files: [f]})){ try { await navigator.share({files: [f], title: 'My Dragon save'}); return; } catch(e) { if (e && e.name === 'AbortError') return; } } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    showCode(`✅ Saved the file "${name}" in your Downloads folder! Send it to the other device (AirDrop: Finder → AirDrop → drag the file onto it), then tap "📂 Open a save file" there.`, '', false);
+  } catch(e) { showCode('Hmm, that did not work. Try "📤 Copy save code" instead.', '', false); }
+};
+$('fileOpenBtn').onclick = () => $('fileOpenIn').click();
+$('fileOpenIn').onchange = async () => {
+  const f = $('fileOpenIn').files[0]; if (!f) return;
+  const text = await f.text(); $('fileOpenIn').value = '';
+  showCode('Loading your save file…', '', true); $('codeText').value = text; $('codeLoad').click();
+};
 
 // The game moves in fixed steps of 1/60 second by the real clock, so it runs at the same speed
 // on every screen (60 Hz, 120 Hz iPads and phones, or slower devices).
@@ -7002,7 +7020,7 @@ const STEP = 1000/60; let lastTs = performance.now(), acc = 0;
 document.addEventListener('visibilitychange', () => { if (document.hidden){ savePet(); save(); } });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 // 🔄 auto-update: whenever the app is opened or comes back, check Netlify for a newer version and reload into it
-const APP_BUILD = '22';
+const APP_BUILD = '23';
 function checkForUpdate(){
   if (!location.protocol.startsWith('http') || !navigator.onLine) return;
   fetch('./index.html?check=' + Date.now(), {cache: 'no-store'}).then(r => r.text()).then(html => {
