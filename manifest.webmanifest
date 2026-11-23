@@ -1,0 +1,15 @@
+{
+  "name": "My Dragon",
+  "short_name": "Dragon",
+  "description": "Take care of your own pet dragon: feed it, play, decorate its home and catch sheep.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#3b2a20",
+  "theme_color": "#2350c8",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
