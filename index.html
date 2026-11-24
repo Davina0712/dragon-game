@@ -3525,7 +3525,7 @@ function loadVoices(){ try { const bad = /Bells|Bad News|Bahh|Boing|Bubbles|Cell
   const prem = all.filter(v => /Premium|Enhanced|Natural|Neural/i.test(v.name));
   ALL_VOICES = [...new Set(prem.concat(best, all))].slice(0, 16);
   if (prem.length && !localStorage.getItem('dragonVoice')) VOICES = prem.slice(0, 4);
-  let pickV = ''; try { pickV = localStorage.getItem('dragonVoice') || ''; } catch(e) {}
+  let pickV = ''; try { pickV = localStorage.getItem('dragonVoice') || ''; if (pickV === '🎙️ My recorded voice') pickV = localStorage.getItem('dragonVoicePrev') || ''; } catch(e) {}
   const chosen = ALL_VOICES.find(v => v.name === pickV); if (chosen) VOICES = [chosen];
   if (typeof renderVoicePick === 'function') renderVoicePick(); } catch(e) {} }
 var ALL_VOICES = [];
@@ -8415,7 +8415,7 @@ setInterval(() => { const v = V(); if (mode !== 'trip' || !v || v.night || trip.
 $('soundBtn').id && $('seasonBtn').parentElement.insertAdjacentHTML('beforebegin', `<div class="row2" style="align-items:center;flex-wrap:wrap;gap:6px;justify-content:center"><span>🗣️ Dragon voice:</span><select id="voicePick" style="padding:6px;border-radius:8px;max-width:200px"></select><button id="voiceTest">▶ Test</button></div>`);
 function renderVoicePick(){ const el = $('voicePick'); if (!el) return; let cur = ''; try { cur = localStorage.getItem('dragonVoice') || ''; } catch(e) {}
   el.innerHTML = '<option value="">✨ Automatic</option>' + ALL_VOICES.map(v => `<option value="${esc(v.name)}" ${v.name === cur ? 'selected' : ''}>${esc(v.name)}</option>`).join(''); }
-$('voicePick').onchange = () => { try { localStorage.setItem('dragonVoice', $('voicePick').value); } catch(e) {} loadVoices(); talk("What's your favorite food? Mine is spicy peppers!"); };
+$('voicePick').onchange = () => { try { myvRememberPrev(); localStorage.setItem('dragonVoice', $('voicePick').value); } catch(e) {} loadVoices(); talk("What's your favorite food? Mine is spicy peppers!"); };
 $('voiceTest').onclick = () => talk("What's your favorite food? Mine is spicy peppers!");
 renderVoicePick();
 // ---------- 🐉 Dragon-speak: the game's very own made-up dragon voices (no computer voice needed!) ----------
@@ -8472,6 +8472,7 @@ async function myvGet(id){ if (!id) return null; const db = await myvDB(); if (!
 async function myvPut(id, blob){ const db = await myvDB(); if (!db) return; return new Promise(res => { const tx = db.transaction('clips', 'readwrite'); blob ? tx.objectStore('clips').put(blob, id) : tx.objectStore('clips').delete(id); tx.oncomplete = res; tx.onerror = res; }); }
 async function myvLoadAll(){ for (const [id] of MYV){ const b = await myvGet(id); myv.have[id] = !!b; delete myv.bufs[id]; } }
 async function myvBuffer(id){ if (myv.bufs[id]) return myv.bufs[id]; const b = await myvGet(id); if (!b || !AC) return null; try { myv.bufs[id] = await AC.decodeAudioData(await b.arrayBuffer()); } catch(e) { return null; } return myv.bufs[id]; }
+function myvRememberPrev(){ try { const c = localStorage.getItem('dragonVoice') || ''; if (c && c !== '🎙️ My recorded voice') localStorage.setItem('dragonVoicePrev', c); } catch(e) {} }
 function myvOn(){ try { return localStorage.getItem('dragonVoice') === '🎙️ My recorded voice'; } catch(e) { return false; } }
 function myvMatch(text){ const s = text.toLowerCase(); for (const [id, , re] of MYV) if (myv.have[id] && re.test(s)) return id; return null; }
 let myvOut = null, myvCur = null;
@@ -8506,7 +8507,14 @@ function myvClean(buf){
   return new Blob([ab], {type: 'audio/wav'});
 }
 { const base = speak; speak = function(text, who, then){
-    if (myvOn()){ const id = myvMatch(text || ''); if (id) return myvPlay(id, who, then); try { sfx.chirp(); } catch(e) {} if (then) setTimeout(() => { const f = then; then = null; f(); }, 1400); return; }
+    if (myvOn()){
+      // your recorded words only stand in for the FIRST little sentence (like "Yum!" or "I'm hungry!"),
+      // and the rest of the cute comment is said with the regular voice
+      const t = String(text || ''), first = (t.match(/^[^!.?…]*[!.?…]+/) || [t])[0], rest = t.slice(first.length).trim();
+      const id = first.split(/\s+/).length <= 6 ? myvMatch(first) : null;
+      if (!id) return base(text, who, then);
+      if (rest.split(/\s+/).filter(w => /\w/.test(w)).length >= 2) return myvPlay(id, who, () => base(rest, who, then));
+      return myvPlay(id, who, then); }
     return base(text, who, then); }; }
 // the recording studio
 document.body.insertAdjacentHTML('beforeend', `<div id="studio" class="overlay"><div class="box" style="max-width:560px"><h2>🎙️ Record your dragon's voice</h2>
@@ -8551,7 +8559,7 @@ $('studioList').addEventListener('click', async e => { const b = e.target.closes
   if (b.dataset.play){ unlockAudio(); myvPlay(b.dataset.play, meVoice()); }
   if (b.dataset.del){ await myvPut(b.dataset.del, null); myv.have[b.dataset.del] = false; delete myv.bufs[b.dataset.del]; renderStudio(); } });
 $('studioShift').onchange = () => { try { localStorage.setItem('dragonVoiceShift', $('studioShift').checked ? 'on' : 'off'); } catch(e) {} };
-$('studioUse').onclick = () => { try { localStorage.setItem('dragonVoice', '🎙️ My recorded voice'); } catch(e) {} renderVoicePick(); renderStudio(); talk('Yay! I love you! Thank you!'); };
+$('studioUse').onclick = () => { try { myvRememberPrev(); localStorage.setItem('dragonVoice', '🎙️ My recorded voice'); } catch(e) {} loadVoices(); renderVoicePick(); renderStudio(); talk('Yay! I love you! Thank you!'); };
 $('studioClose').onclick = () => { stopRec(); $('studio').classList.remove('open'); };
 $('voiceTest').insertAdjacentHTML('afterend', '<button id="studioBtn">🎙️ Record my voice</button>');
 $('studioBtn').onclick = async () => { await myvLoadAll(); renderStudio(); $('studio').classList.add('open'); };
@@ -8571,7 +8579,7 @@ const STEP = 1000/60; let lastTs = performance.now(), acc = 0;
 document.addEventListener('visibilitychange', () => { if (document.hidden){ savePet(); save(); } });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 // 🔄 auto-update: whenever the app is opened or comes back, check Netlify for a newer version and reload into it
-const APP_BUILD = '28';
+const APP_BUILD = '29';
 function checkForUpdate(){
   if (!location.protocol.startsWith('http') || !navigator.onLine) return;
   fetch('./index.html?check=' + Date.now(), {cache: 'no-store'}).then(r => r.text()).then(html => {
