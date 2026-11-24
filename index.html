@@ -8473,7 +8473,9 @@ async function myvPut(id, blob){ const db = await myvDB(); if (!db) return; retu
 async function myvLoadAll(){ for (const [id] of MYV){ const b = await myvGet(id); myv.have[id] = !!b; delete myv.bufs[id]; } }
 async function myvBuffer(id){ if (myv.bufs[id]) return myv.bufs[id]; const b = await myvGet(id); if (!b || !AC) return null; try { myv.bufs[id] = await AC.decodeAudioData(await b.arrayBuffer()); } catch(e) { return null; } return myv.bufs[id]; }
 function myvRememberPrev(){ try { const c = localStorage.getItem('dragonVoice') || ''; if (c && c !== '🎙️ My recorded voice') localStorage.setItem('dragonVoicePrev', c); } catch(e) {} }
-function myvOnly(){ try { return localStorage.getItem('dragonVoiceMix') === 'mine'; } catch(e) { return false; } }
+function myvMixMode(){ try { return localStorage.getItem('dragonVoiceMix') || 'mix'; } catch(e) { return 'mix'; } }
+// 'mine' = only my voice, 'mix' = my voice + computer voice, 'size' = tiny dragons only mine, bigger ones mixed
+function myvOnly(who){ const m = myvMixMode(); if (m === 'mine') return true; if (m === 'size') return ((who && who.size) || 1) < 1; return false; }
 function myvOn(){ try { return localStorage.getItem('dragonVoice') === '🎙️ My recorded voice'; } catch(e) { return false; } }
 function myvMatch(text){ const s = text.toLowerCase(); for (const [id, , re] of MYV) if (myv.have[id] && re.test(s)) return id; return null; }
 let myvOut = null, myvCur = null;
@@ -8508,7 +8510,7 @@ function myvClean(buf){
   return new Blob([ab], {type: 'audio/wav'});
 }
 { const base = speak; speak = function(text, who, then){
-    if (myvOn() && myvOnly()){
+    if (myvOn() && myvOnly(who)){
       // only my voice: say a recorded line if one fits, otherwise a cute chirp
       const id = myvMatch(String(text || '')); if (id) return myvPlay(id, who, then);
       try { sfx.chirp(); } catch(e) {} if (then) setTimeout(() => { const f = then; then = null; f(); }, 1000); return; }
@@ -8526,13 +8528,13 @@ document.body.insertAdjacentHTML('beforeend', `<div id="studio" class="overlay">
   <p class="hint">Tap <b>● Record</b>, say the words, and it stops by itself when you finish talking (or tap ■). Talk close to the screen, nice and loud!. Your dragons will say these when they talk!</p>
   <div id="studioList" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto"></div>
   <div class="row2"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="studioShift" checked> 🐉 Make it sound like a dragon (higher and faster)</label></div>
-  <div class="row2"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="studioMix" checked> 🗣️ Say the rest of their comments with the computer voice</label></div>
+  <div class="row2"><label style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">🗣️ Who uses my voice: <select id="studioMix"><option value="mix">Everyone: my voice + computer voice</option><option value="mine">Everyone: only my voice</option><option value="size">🐣 Tiny dragons: only my voice · 🐉 Big dragons: my voice + computer</option></select></label></div>
   <div class="row2"><button id="studioUse" class="primary">✅ Use my voice for the dragons</button><button id="studioClose">Done</button></div><div id="studioMsg" class="hint"></div></div></div>`);
 function renderStudio(){
   $('studioList').innerHTML = MYV.map(([id, label]) => `<div style="display:flex;align-items:center;gap:6px;justify-content:space-between;background:rgba(255,255,255,.06);padding:6px 8px;border-radius:10px">
     <span>${myv.have[id] ? '✅' : '⬜'} ${label}</span><span style="display:flex;gap:4px"><button data-rec="${id}">${myv.rec && myv.rec.id === id ? '■ Stop' : '● Record'}</button><button data-play="${id}" ${myv.have[id] ? '' : 'disabled'}>▶</button><button data-del="${id}" ${myv.have[id] ? '' : 'disabled'}>🗑️</button></span></div>`).join('');
   try { $('studioShift').checked = localStorage.getItem('dragonVoiceShift') !== 'off'; } catch(e) {}
-  try { $('studioMix').checked = !myvOnly(); } catch(e) {}
+  try { $('studioMix').value = myvMixMode(); } catch(e) {}
   const n = Object.values(myv.have).filter(Boolean).length; $('studioMsg').textContent = `${n} of ${MYV.length} recorded${myvOn() ? ' · 🎙️ The dragons are using your voice!' : ''}`;
 }
 async function startRec(id){
@@ -8565,7 +8567,7 @@ $('studioList').addEventListener('click', async e => { const b = e.target.closes
   if (b.dataset.rec) startRec(b.dataset.rec);
   if (b.dataset.play){ unlockAudio(); myvPlay(b.dataset.play, meVoice()); }
   if (b.dataset.del){ await myvPut(b.dataset.del, null); myv.have[b.dataset.del] = false; delete myv.bufs[b.dataset.del]; renderStudio(); } });
-$('studioMix').onchange = () => { try { localStorage.setItem('dragonVoiceMix', $('studioMix').checked ? 'mix' : 'mine'); } catch(e) {} };
+$('studioMix').onchange = () => { try { localStorage.setItem('dragonVoiceMix', $('studioMix').value); } catch(e) {} };
 $('studioShift').onchange = () => { try { localStorage.setItem('dragonVoiceShift', $('studioShift').checked ? 'on' : 'off'); } catch(e) {} };
 $('studioUse').onclick = () => { try { myvRememberPrev(); localStorage.setItem('dragonVoice', '🎙️ My recorded voice'); } catch(e) {} loadVoices(); renderVoicePick(); renderStudio(); talk('Yay! I love you! Thank you!'); };
 $('studioClose').onclick = () => { stopRec(); $('studio').classList.remove('open'); };
@@ -8587,7 +8589,7 @@ const STEP = 1000/60; let lastTs = performance.now(), acc = 0;
 document.addEventListener('visibilitychange', () => { if (document.hidden){ savePet(); save(); } });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 // 🔄 auto-update: whenever the app is opened or comes back, check Netlify for a newer version and reload into it
-const APP_BUILD = '30';
+const APP_BUILD = '31';
 function checkForUpdate(){
   if (!location.protocol.startsWith('http') || !navigator.onLine) return;
   fetch('./index.html?check=' + Date.now(), {cache: 'no-store'}).then(r => r.text()).then(html => {
