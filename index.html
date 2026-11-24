@@ -118,7 +118,7 @@
   body.nodragon #emptyRoom{display:flex}
   #emptyRoom .ebox{pointer-events:auto;background:rgba(40,26,18,.9);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:16px;max-width:90vw;width:360px;text-align:center;display:flex;flex-direction:column;gap:8px}
   #emptyRoom .eh{font-weight:700;font-size:17px} #emptyBtns{display:flex;flex-direction:column;gap:8px}
-  body.nodragon #feedBtn, body.nodragon #playBtn, body.nodragon #bathBtn, body.nodragon #sleepBtn, body.nodragon #gameBtn, body.nodragon #raceBtn, body.nodragon #courseBtn, body.nodragon #card .bar, body.nodragon #mood, body.nodragon #tummy{display:none}
+  body.nodragon #feedBtn, body.nodragon #playBtn, body.nodragon #bathBtn, body.nodragon #sleepBtn, body.nodragon #gameBtn, body.nodragon #raceBtn, body.nodragon #courseBtn, body.nodragon #tripBtn, body.nodragon #card .bar, body.nodragon #mood, body.nodragon #tummy{display:none}
   body.decor #emptyRoom, body.game #emptyRoom{display:none!important}
   .mitem{display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.06);margin:8px 0;text-align:left}
   .mitem.new{background:rgba(255,213,79,.14);border:1px solid rgba(255,213,79,.4)}
@@ -710,7 +710,7 @@ function update(){
 
 // ---------- Room drawing ----------
 function rr(x, y, w, h, r){ ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
-const hour = () => new Date().getHours();
+let hour = () => new Date().getHours();
 const windowStars = Array.from({length:22}, () => ({x:Math.random(), y:Math.random(), p:Math.random()*6}));
 
 function drawLivingRoom(){
@@ -1306,7 +1306,7 @@ function spawnSheep(edge){
 const SHEEP_TIMES = [0.5, 1, 2, 3, 5, 10];
 let sheepMins = 2; try { sheepMins = +localStorage.getItem('dragonSheepTime') || 2; } catch(e) {}
 if (!SHEEP_TIMES.includes(sheepMins)) sheepMins = 2;
-const goalFor = (lv, mins = sheepMins) => Math.max(3, Math.round((5 + lv*5)*mins/2));
+let goalFor = (lv, mins = sheepMins) => Math.max(3, Math.round((5 + lv*5)*mins/2));
 const timeName = m => m < 1 ? '30 seconds' : m === 1 ? '1 minute' : `${m} minutes`;
 function openSheepTime(){
   if (pet.energy < 15){ const h = segs[0]; say(h.x, h.y - 40, 'too sleepy to play… 😴'); return; }
@@ -3521,7 +3521,14 @@ function loadVoices(){ try { const bad = /Bells|Bad News|Bahh|Boing|Bubbles|Cell
   const order = ['Samantha', 'Ava', 'Allison', 'Susan', 'Karen', 'Tessa', 'Moira', 'Google US English', 'Aria', 'Jenny', 'Emma', 'Libby', 'Sonia', 'Nicky', 'Joelle', 'Zira', 'Google UK English Female'];
   const rank = v => { const i = order.findIndex(n => v.name.includes(n)); return (i < 0 ? 50 : i) - (/Enhanced|Premium|Natural|Neural/i.test(v.name) ? 30 : 0); };
   const best = all.filter(v => nice.test(v.name)).sort((a, b) => rank(a) - rank(b));
-  VOICES = (best.length ? best : all).slice(0, 4); } catch(e) {} }
+  VOICES = (best.length ? best : all).slice(0, 4);
+  const prem = all.filter(v => /Premium|Enhanced|Natural|Neural/i.test(v.name));
+  ALL_VOICES = [...new Set(prem.concat(best, all))].slice(0, 16);
+  if (prem.length && !localStorage.getItem('dragonVoice')) VOICES = prem.slice(0, 4);
+  let pickV = ''; try { pickV = localStorage.getItem('dragonVoice') || ''; } catch(e) {}
+  const chosen = ALL_VOICES.find(v => v.name === pickV); if (chosen) VOICES = [chosen];
+  if (typeof renderVoicePick === 'function') renderVoicePick(); } catch(e) {} }
+var ALL_VOICES = [];
 try { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; } catch(e) {}
 const hashStr = s => { let h = 7; for (const c of String(s)) h = (h*31 + c.charCodeAt(0)) >>> 0; return h; };
 function cleanSpeech(text){ let w = String(text).replace(/\p{Extended_Pictographic}|️|‍|[*~_"“”]/gu, '').replace(/\s+/g, ' ').trim();
@@ -3531,7 +3538,7 @@ function cleanSpeech(text){ let w = String(text).replace(/\p{Extended_Pictograph
   // a word in ALL CAPS gets spelled out letter by letter, so say it as a normal word
   w = w.replace(/\b[A-Z]{3,}\b/g, m => m[0] + m.slice(1).toLowerCase());
   return w; }
-const SAY_LIKE = [[/\bspicy\b/gi, 'spy-see'], [/\bspicier\b/gi, 'spy-see-er'], [/\bspiciest\b/gi, 'spy-see-est'], [/\bEmi\b/g, 'Emmy'], [/\bEMI\b/g, 'Emmy'], [/\byummy\b/gi, 'yummy'], [/\bnom\b/gi, 'nahm']];
+const SAY_LIKE = [[/\b(ha[\s,!.]*){2,}/gi, ''], [/\b(he){2,}\b[!.]*/gi, ''], [/\b(hee[\s,!.]*){2,}/gi, ''], [/\bspicy\b/gi, 'spy-see'], [/\bspicier\b/gi, 'spy-see-er'], [/\bspiciest\b/gi, 'spy-see-est'], [/\bEmi\b/g, 'Emmy'], [/\bEMI\b/g, 'Emmy'], [/\byummy\b/gi, 'yummy'], [/\bnom\b/gi, 'nahm']];
 // who: {id, size} of the dragon who is talking
 function speak(text, who, then){
   const done = () => { if (then){ const f = then; then = null; f(); } };
@@ -3539,19 +3546,23 @@ function speak(text, who, then){
   if (SOUND !== 'all' || !window.speechSynthesis || !words){ if (then) setTimeout(done, 1800); return; }
   try {
     // only clear the line if lots of talking is waiting (so nobody gets cut off mid-sentence)
-    if ((window.__talkQ || 0) > 6){ speechSynthesis.cancel(); window.__talkQ = 0; }
+    // only clear the line if there's a really long pile of talking waiting (based on time, since some computers forget to say when talking is done)
+    if ((window.__talkUntil || 0) - Date.now() > 25000){ speechSynthesis.cancel(); window.__talkUntil = 0; }
     const id = (who && who.id) || 'me', size = (who && who.size) || 1, h = hashStr(id), u = new SpeechSynthesisUtterance(words);
     // every dragon in the family gets its own happy voice (different pitch and speed)
     const fam = pet.dragons.findIndex(d => d.id === id), n = fam >= 0 ? fam : h;
-    u.lang = 'en-US'; if (VOICES.length) u.voice = VOICES[n % VOICES.length];
+    if (VOICES.length) u.voice = VOICES[n % VOICES.length]; u.lang = u.voice ? u.voice.lang : 'en-US';
     const basePitch = Math.max(1.15, Math.min(1.6, [1.5, 1.3, 1.6, 1.4, 1.55, 1.25][n % 6] - (size - 1)*0.2)), baseRate = [1.05, 1.1, 1.0, 1.12, 1.04, 1.08][n % 6];
-    const parts = words.match(/[^.!?]+[.!?]*|[.!?]+/g).map(x => x.trim()).filter(x => /[a-z0-9]/i.test(x));
-    const utts = parts.map(p => { const v = new SpeechSynthesisUtterance(p); v.lang = 'en-US'; if (u.voice) v.voice = u.voice;
-      const big = /!{2,}\s*$/.test(p), ex = /!\s*$/.test(p), q = /\?\s*$/.test(p);
-      v.pitch = Math.min(2, basePitch + (big ? 0.4 : ex ? 0.22 : q ? 0.12 : -0.05)); v.rate = baseRate + (big ? 0.12 : ex ? 0.07 : 0); v.volume = 1;
-      return v; });
+    const v1 = new SpeechSynthesisUtterance(words); if (u.voice){ v1.voice = u.voice; v1.lang = u.voice.lang; } else v1.lang = 'en-US';
+    const big = /!{2,}/.test(words), ex = /!/.test(words);
+    v1.pitch = Math.min(1.5, basePitch*0.92 + (big ? 0.12 : ex ? 0.06 : 0)); v1.rate = Math.min(1.08, baseRate + (ex ? 0.03 : 0)); v1.volume = 1;
+    // some voices (like Moira and Tessa) glitch when their pitch is raised, so they talk at their normal pitch
+    if (u.voice && (/Moira|Tessa|Karen|Fiona|Daniel|Rishi|Veena|Kate|Serena/i.test(u.voice.name) || localStorage.getItem('dragonVoiceHigh') === 'off')){ v1.pitch = 1; v1.rate = 1; }
+    const utts = [v1];
     if (!utts.length) utts.push(u);
-    for (const v of utts){ window.__talkQ = (window.__talkQ || 0) + 1; const left = () => { window.__talkQ = Math.max(0, (window.__talkQ || 1) - 1); }; v.onend = left; v.onerror = () => { left(); done(); }; }
+    for (const v of utts){ window.__talkUntil = Math.max(Date.now(), window.__talkUntil || 0) + 500 + v.text.length*75; const left = () => {}; v.onend = left; v.onerror = () => { done(); }; }
+    // keep the talking in memory until it's finished (some browsers cut speech off in the middle otherwise)
+    window.__uttRefs = (window.__uttRefs || []).concat(utts).slice(-20);
     { const last = utts[utts.length - 1], le = last.onend; last.onend = () => { le(); done(); }; }
     setTimeout(() => { try { for (const v of utts) speechSynthesis.speak(v); } catch(e) { done(); } }, 60);
     setTimeout(done, 1500 + words.length*90);   // in case the phone never says "finished"
@@ -4429,7 +4440,7 @@ function openMeadow(){
 function closeMeadow(){ mode = 'home'; document.body.classList.remove('meadow'); activateDragon(); layoutRoom(); savePet(); }
 $('meadowExit').onclick = closeMeadow;
 $('meadowOpen').onclick = openMeadow;
-function meadowSay(d, txt, size = 16){ const st = meadowState.get(d.id), h = st && st.segs[0]; say(h ? h.x : W/2, (h ? h.y : H/2) - 36, txt, size); }
+function meadowSay(d, txt, size = 16){ const st = meadowState.get(d.id), h = st && st.segs[0], sw = W; if (mode === 'meadow' && typeof meadowWorldW === 'function' && W < meadowWorldW(sw)) W = meadowWorldW(sw); try { say(h ? h.x : W/2, (h ? h.y : H/2) - 36, txt, size); } finally { W = sw; } }
 function moveToMeadow(d){
   if (!d || d.home === 'meadow') return;
   if (guest && guest.d === d) sendHome();
@@ -4485,7 +4496,8 @@ $('meadowBody').addEventListener('click', e => {
 addEventListener('pointerdown', e => {
   if (mode !== 'meadow' || onUI(e)) return;
   let best = null, bd = 60;
-  for (const d of meadowDragons()){ const st = meadowState.get(d.id); if (!st) continue; for (const s of st.segs.slice(0, 8)){ const dd = Math.hypot(e.clientX - s.x, e.clientY - s.y); if (dd < bd){ bd = dd; best = d; } } }
+  const wx = e.clientX + (typeof meadowCam !== 'undefined' ? meadowCam.x : 0);
+  for (const d of meadowDragons()){ const st = meadowState.get(d.id); if (!st) continue; for (const s of st.segs.slice(0, 8)){ const dd = Math.hypot(wx - s.x, e.clientY - s.y); if (dd < bd){ bd = dd; best = d; } } }
   if (!best) return;
   meadowUI.sel = best.id; best.stats.happy = clamp(best.stats.happy + 8); sfx.purr();
   const st = meadowState.get(best.id); for (let k = 0; k < 5; k++) floats.push({x: st.segs[0].x + (Math.random() - .5)*40, y: st.segs[0].y - 20, text: '💖', size: 15, life: 1});
@@ -5632,9 +5644,10 @@ function waterBowl(){
     }
     if (drinkTo && t > drinkTo.until) drinkTo = null;
     // thirsty dragons go to the bowl by themselves
-    if (!drinkTo && pet.water < 35 && t > nextThirstIdea){ nextThirstIdea = t + 20 + Math.random()*15;
-      if (pet.bowlWater > 5){ drinkTo = {until: t + 9}; talk(pick(["I'm thirsty! 💧", 'Time for a drink!'])); }
-      else talk('I\'m thirsty… can you fill my water bowl? 💧'); }
+    if (!drinkTo && pet.water < 50 && !pet.sleeping && t > nextThirstIdea){ nextThirstIdea = t + 10 + Math.random()*6;
+      // an empty bowl fills itself up (it's a magic dragon fountain bowl!)
+      if (pet.bowlWater <= 5){ pet.bowlWater = 100; const B = waterBowl(); for (let k = 0; k < 8; k++) floats.push({x: B.x + (Math.random() - .5)*40, y: B.y - 10 - Math.random()*20, text: pick(['💧','💦']), size: 14, life: 0.9}); try { sfx.splash(); } catch(e) {} }
+      drinkTo = {until: t + 9}; talk(pick(["I'm thirsty! 💧", 'Time for a drink!', 'Slurp time! 💧'])); }
   }; }
 // a water bowl next to the food bowl
 { const base = drawRoom; drawRoom = function(){ base();
@@ -6547,7 +6560,7 @@ setInterval(() => {
       const last = words.split(/\s+/).filter(w => /[a-z]/i.test(w)).slice(-1)[0]; if (!last) return;
       const id = (who && who.id) || 'me', h = hashStr(id), fam = pet.dragons.findIndex(d => d.id === id), n = fam >= 0 ? fam : h;
       for (const vol of [0.45, 0.2]){ const u = new SpeechSynthesisUtterance(last.replace(/[^a-z'!?]/gi, ''));
-        u.lang = 'en-US'; if (VOICES.length) u.voice = VOICES[n % VOICES.length]; u.pitch = 1.6; u.rate = 1.15; u.volume = vol;
+        if (VOICES.length) u.voice = VOICES[n % VOICES.length]; u.lang = u.voice ? u.voice.lang : 'en-US'; u.pitch = /Moira|Tessa|Karen|Fiona|Daniel/i.test(u.voice ? u.voice.name : '') ? 1 : 1.6; u.rate = 1.15; u.volume = vol;
         setTimeout(() => { try { speechSynthesis.speak(u); } catch(e) {} }, 300); }
     } catch(e) {}
   }; }
@@ -6704,7 +6717,9 @@ function poopMaxY(){
   try { const r = $('roomBar').getBoundingClientRect(); if (r.height) top = Math.min(top, r.top - 24); } catch(e) {}
   return Math.max(floorY + 16, top);
 }
-setInterval(() => { try { const m = poopMaxY(); for (const p of poops) if (p.room === pet.room){ if (p.rest > m) p.rest = m; if (p.landed && p.y > m) p.y = m; } } catch(e) {} }, 500);
+setInterval(() => { try { const m = poopMaxY(), T = typeof tunnelSpot === 'function' ? tunnelSpot() : null;
+  for (const p of poops) if (p.room === pet.room){ if (p.rest > m) p.rest = m; if (p.landed && p.y > m) p.y = m;
+    if (T && p.landed && Math.abs(p.x - T.x) < T.rx + 26 && Math.abs(p.y - T.y) < T.ry + 30){ p.x = T.x + (p.x < T.x ? -1 : 1)*(T.rx + 34); } } } catch(e) {} }, 500);
 // ---------- 🥵 heat, 💦 waterfall splashing, and 🕳️ tunnels to the Waterfall Grotto ----------
 if (!STAT_KEYS.includes('heat')) STAT_KEYS.push('heat');
 STAT_DEF.heat = 0; if (typeof pet.heat !== 'number') pet.heat = 0;
@@ -6774,7 +6789,8 @@ addEventListener('pointerdown', e => {
   const S = fallsStream();
   if (S && Math.abs(e.clientX - S.x) < 42 && e.clientY > S.top - 20 && e.clientY < S.bottom + 12){ startFallsSplash(S); talk(pick(['Splash time! 💦', 'Waterfall shower! 💦'])); }
   const T = tunnelSpot();
-  if (T && Math.hypot((e.clientX - T.x)/T.rx, (e.clientY - T.y)/(T.ry + 10)) < 1.3){ e.stopImmediatePropagation(); goThroughTunnel(); }
+  const onPoop = poops.some(p => (p.room || 'living') === pet.room && Math.hypot(p.x - e.clientX, p.y - 12 - e.clientY) < 30);   // cleaning a poop comes first!
+  if (T && !onPoop && Math.hypot((e.clientX - T.x)/T.rx, (e.clientY - T.y)/(T.ry + 10)) < 1.3){ e.stopImmediatePropagation(); goThroughTunnel(); }
 }, true);
 
 // ---- 🕳️ tunnels ----
@@ -7141,6 +7157,1371 @@ let qrAuto = null;
       qrAuto = setInterval(() => { if (!$('qrBox').classList.contains('open')){ clearInterval(qrAuto); return; } qrPartI = (qrPartI + 1) % qrParts.length; const keep = qrAuto; base(); $('qrMsg').innerHTML = `<b style="font-size:18px">Part ${qrPartI + 1} of ${qrParts.length}</b><br>On the iPad: open the game → 👤 → <b>📷 Scan QR codes</b> and point it here. The codes change by themselves, just hold still until it says it got them all!`; }, 1600);
     } }; }
 
+// ---------- 🌄 a much bigger meadow: wider than the screen, drag to look around ----------
+const meadowCam = {x: 0, drag: null, hint: 0};
+const meadowWorldW = (sw) => Math.round(sw*(sw < 600 ? 3 : 2.2));
+function meadowClamp(sw){ meadowCam.x = Math.max(0, Math.min(meadowWorldW(sw) - sw, meadowCam.x)); }
+{ const base = update; update = function(){
+    if (mode !== 'meadow'){ base(); return; }
+    const sw = W; W = meadowWorldW(sw); try { base(); } finally { W = sw; }
+    // follow the party in the middle, or a dragon you picked
+    if (!meadowCam.drag && meadowCam.follow){ const st = meadowState.get(meadowCam.follow); if (st){ const want = st.segs[0].x - sw/2; meadowCam.x += (want - meadowCam.x)*0.08; } }
+    meadowClamp(sw);
+  }; }
+{ const base = draw; draw = function(){
+    if (mode !== 'meadow'){ base(); return; }
+    const sw = W; meadowClamp(sw);
+    ctx.save(); ctx.translate(-Math.round(meadowCam.x), 0); W = meadowWorldW(sw);
+    try { base(); } finally { W = sw; ctx.restore(); }
+    // little arrows that show there's more meadow to see
+    const MW = meadowWorldW(sw), G = mGround(), a = 0.55 + 0.25*Math.sin(t*3);
+    ctx.font = '900 34px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.strokeStyle = `rgba(0,0,0,${a*0.5})`; ctx.fillStyle = `rgba(255,255,255,${a})`;
+    if (meadowCam.x > 4){ ctx.strokeText('◀', 26, G - 120); ctx.fillText('◀', 26, G - 120); }
+    if (meadowCam.x < MW - sw - 4){ ctx.strokeText('▶', sw - 26, G - 120); ctx.fillText('▶', sw - 26, G - 120); }
+    if (t < meadowCam.hint){ const msg = '👆 Drag to see the whole meadow!'; ctx.font = '700 17px system-ui'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.fillStyle = '#fff'; ctx.strokeText(msg, sw/2, 110); ctx.fillText(msg, sw/2, 110); }
+    ctx.textBaseline = 'alphabetic';
+  }; }
+{ const base = openMeadow; openMeadow = function(){ base(); meadowCam.x = (meadowWorldW(W) - W)/2; meadowCam.follow = null; meadowCam.hint = t + 5; }; }
+addEventListener('pointerdown', e => { if (mode !== 'meadow' || onUI(e)) return; meadowCam.drag = {x0: e.clientX, cam0: meadowCam.x, moved: false}; });
+addEventListener('pointermove', e => { const D = meadowCam.drag; if (mode !== 'meadow' || !D) return; const dx = e.clientX - D.x0; if (Math.abs(dx) > 8) D.moved = true; if (D.moved){ meadowCam.x = D.cam0 - dx; meadowCam.follow = null; meadowClamp(W); } });
+addEventListener('pointerup', () => { meadowCam.drag = null; });
+addEventListener('keydown', e => { if (mode !== 'meadow') return; if (e.code === 'ArrowLeft'){ meadowCam.x -= 60; meadowCam.follow = null; } if (e.code === 'ArrowRight'){ meadowCam.x += 60; meadowCam.follow = null; } meadowClamp(W); });
+// picking a dragon's name button flies the view over to it
+$('meadowBody').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) meadowCam.follow = b.dataset.m;
+  if (e.target.closest('#mParty')){ meadowCam.follow = null; meadowCam.x = (meadowWorldW(W) - W)/2; for (const c of confetti) if (c.burst && !c.mw){ c.x += meadowCam.x; c.mw = 1; } } });
+
+// 💧 roommates and meadow dragons drink by themselves too
+{ const base = tickOthers; tickOthers = function(){ base();
+    if (mode !== 'home' || noDragon || typeof roommates !== 'function') return;
+    const wb = waterBowl();
+    for (const d of roommates()){ const st = mateState.get(d.id), s = d.stats; if (!st || s.sleeping) continue;
+      if (typeof s.water !== 'number') s.water = 100;
+      if (s.water < 50 && !st.drink){ st.drink = true; const h = st.segs[0]; say(h.x, h.y - 40, `${d.cfg.name}: I'm thirsty! 💧`, 15); }
+      if (st.drink){ st.goal = {x: wb.x + 8, y: wb.y - 20}; st.next = t + 1;
+        const h = st.segs[0]; if (Math.hypot(h.x - wb.x - 8, h.y - wb.y + 20) < 30){ s.water = clamp(s.water + 0.8); pet.bowlWater = Math.max(0, (pet.bowlWater || 0) - 0.2); if (pet.bowlWater <= 5) pet.bowlWater = 100;
+          if (Math.random() < 0.06) floats.push({x: wb.x, y: wb.y - 16, text: '💧', size: 12, life: 0.7}); if (s.water >= 99){ st.drink = false; say(h.x, h.y - 40, `${d.cfg.name}: Ahh! 💦`, 15); } } }
+    } }; }
+{ const base = updateMeadow; updateMeadow = function(){ base(); for (const d of meadowDragons()){ const s = d.stats; if (typeof s.water === 'number') s.water = Math.max(s.water, 60); } }; }
+// 🌸 a prettier Waterfall Grotto: a ring of flowers around the pond, butterflies, fireflies at night, and gentle music
+function grottoFlowers(){
+  const S = fStream(), out = [], n = Math.round(Math.max(22, S.prx*0.42));
+  for (let k = 0; k < n; k++){ const a = k/n*Math.PI*2, rx = S.prx + 22 + (k % 2)*9, ry = S.pry + 14 + (k % 2)*6;
+    out.push({x: S.px + Math.cos(a)*rx, y: S.py + Math.sin(a)*ry, c: ['#ff8fab', '#ffd54f', '#ffffff', '#c3a6ff', '#ff7043', '#7fd6ff'][k % 6], s: 5 + (k*7 % 3), back: Math.sin(a) < 0}); }
+  return out;
+}
+function drawFlower(f, day){
+  const r = f.s, sw = Math.sin(t*1.5 + f.x*0.05)*1.5;
+  ctx.strokeStyle = day ? '#3f8f4a' : '#24502c'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(f.x, f.y + r*2.2); ctx.lineTo(f.x + sw, f.y); ctx.stroke();
+  ctx.fillStyle = day ? '#4caf50' : '#2a5a2e'; ctx.beginPath(); ctx.ellipse(f.x + 4, f.y + r*1.6, 4, 2, 0.5, 0, 7); ctx.fill();
+  ctx.fillStyle = f.c; for (let p = 0; p < 5; p++){ const a = p/5*Math.PI*2 + t*0.2; ctx.beginPath(); ctx.ellipse(f.x + sw + Math.cos(a)*r*0.75, f.y + Math.sin(a)*r*0.75, r*0.6, r*0.4, a, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#ffcf33'; ctx.beginPath(); ctx.arc(f.x + sw, f.y, r*0.38, 0, 7); ctx.fill();
+}
+{ const base = drawFalls; drawFalls = function(){
+    const day = hour() >= 7 && hour() < 19, F = grottoFlowers(), S = fStream(), G = fG();
+    // draw the scene, but slip the flowers in at the right depth: the back half before, the front half after
+    const keepDD = drawDragon; let drawn = false;
+    drawDragon = function(){ if (!drawn){ drawn = true; for (const f of F) if (f.back) drawFlower(f, day); for (const f of F) if (!f.back) drawFlower(f, day);
+        // hanging vines and a few big ferns on the cliffs
+        ctx.strokeStyle = day ? '#3f8f4a' : '#23462a'; ctx.lineWidth = 2;
+        for (let k = 0; k < 7; k++){ const x = S.x - 70 + k*22, len = 30 + (k*37 % 50); ctx.beginPath(); ctx.moveTo(x, S.top - 6); for (let y = 0; y <= len; y += 6) ctx.lineTo(x + Math.sin(y*0.15 + t + k)*3, S.top - 6 + y); ctx.stroke(); }
+        // butterflies (day) or fireflies (night)
+        if (day) butterflies('grotto', 6, () => ({x: S.px - S.prx - 60, y: G - 140, w: S.prx*2 + 120, h: 150 + (S.py - G)}), () => { const f = pick(F); return {x: f.x, y: f.y - 6}; });
+        else for (let k = 0; k < 14; k++){ const x = S.px + Math.sin(t*0.4 + k*1.7)*(S.prx + 60), y = G - 40 + Math.cos(t*0.5 + k*2.3)*50, a = 0.4 + 0.6*Math.abs(Math.sin(t*2 + k)); ctx.fillStyle = `rgba(255,240,140,${a})`; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, 7); ctx.fill(); ctx.fillStyle = `rgba(255,240,140,${a*0.25})`; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+        // a little rainbow in the mist on sunny days
+        if (day){ ctx.save(); ctx.globalAlpha = 0.18 + 0.05*Math.sin(t*0.6); ctx.lineWidth = 3; ['#ff4d4d','#ffa64d','#ffe14d','#5ee36a','#4db8ff','#8a6bff'].forEach((c, i) => { ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(S.x, S.bottom + 10, 60 + i*3.5, Math.PI*1.08, Math.PI*1.92); ctx.stroke(); }); ctx.restore(); }
+      }
+      keepDD(); };
+    try { base(); } finally { drawDragon = keepDD; }
+  }; }
+// gentle grotto music: slow, soft harp-like notes over warm pads
+SONGS.grotto = makeSong({bpm: 70, style: 'waltz', box: true, vol: 0.7, gap: 3,
+  mel: 'E5 2 G5 1 | A5 2 G5 1 | E5 1 D5 1 C5 1 | D5 3 | E5 2 G5 1 | C6 2 B5 1 | A5 1 G5 1 E5 1 | G5 3 | A5 2 C6 1 | B5 2 G5 1 | A5 1 G5 1 E5 1 | D5 3 | C5 1 D5 1 E5 1 | G5 2 E5 1 | D5 1 C5 1 D5 1 | C5 3',
+  ch: [['C',3],['F',3],['Am',3],['G',3],['C',3],['F',3],['Am',3],['G',3],['F',3],['Em',3],['Am',3],['G',3],['C',3],['Em',3],['G',3],['C',3]]});
+{ const base = wantedSong; wantedSong = function(){ return mode === 'falls' ? 'grotto' : base(); }; }
+// ---------- 🌦️ real weather: rain, snow, clouds, fog and storms like outside right now ----------
+const WX = {on: (() => { try { return localStorage.getItem('dragonWeather') !== 'off'; } catch(e) { return true; } })(), code: null, temp: null, wind: 0, at: 0, flash: 0, drops: [], said: ''};
+function wxKind(){ const c = WX.code; if (!WX.on || c === null) return 'none';
+  if (c >= 95) return 'storm'; if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow'; if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return 'rain';
+  if (c === 45 || c === 48) return 'fog'; if (c === 3) return 'cloudy'; if (c === 1 || c === 2) return 'partly'; return 'clear'; }
+const WX_ICON = {storm: '⛈️', snow: '🌨️', rain: '🌧️', fog: '🌫️', cloudy: '☁️', partly: '⛅', clear: '☀️', none: ''};
+const WX_SAY = {storm: "Whoa, a thunderstorm outside! ⛈️", snow: "It's snowing for real! ❄️", rain: "It's raining outside! 🌧️", fog: "It's foggy outside! 🌫️", cloudy: "It's cloudy today ☁️", clear: "It's a sunny day! ☀️", partly: 'Some clouds and some sun ⛅'};
+var wxFetch = async function(){
+  if (!WX.on) return;
+  let pos = null; try { pos = JSON.parse(localStorage.getItem('dragonWxPos') || 'null'); } catch(e) {}
+  if (!pos){
+    if (navigator.geolocation) pos = await new Promise(res => navigator.geolocation.getCurrentPosition(p => res({lat: Math.round(p.coords.latitude*10)/10, lon: Math.round(p.coords.longitude*10)/10}), () => res(null), {timeout: 15000, maximumAge: 3600e3}));
+    if (!pos){ WX.noPlace = true; renderWx(); return; }
+    WX.noPlace = false; try { localStorage.setItem('dragonWxPos', JSON.stringify(pos)); } catch(e) {}
+  }
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.lat}&longitude=${pos.lon}&current=weather_code,temperature_2m,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph`);
+    const j = await r.json(); if (!j.current) return;
+    const before = wxKind(); WX.code = j.current.weather_code; WX.temp = Math.round(j.current.temperature_2m); WX.wind = j.current.wind_speed_10m || 0; WX.at = Date.now();
+    renderWx(); const now = wxKind();
+    if (now !== before && WX_SAY[now] && mode === 'home' && !noDragon && !pet.sleeping) setTimeout(() => talk(WX_SAY[now]), 1500);
+  } catch(e) {}
+}
+function renderWx(){
+  let el = $('wxLine'); if (!el){ $('card').insertAdjacentHTML('beforeend', '<div id="wxLine" style="font-size:12px;opacity:.9;margin-top:2px"></div>'); el = $('wxLine'); }
+  const k = wxKind(); el.textContent = !WX.on ? '' : WX.noPlace ? '📍 Weather: tap 👤 → Set my town' : k === 'none' ? '🌦️ Checking the weather…' : `${WX_ICON[k]} Outside: ${WX.temp}°F${WX.town ? ' · ' + WX.town : ''}`;
+  const b = $('wxBtn'); if (b) b.textContent = WX.on ? '🌦️ Real weather: On' : '🌦️ Real weather: Off';
+}
+$('seasonBtn').parentElement.insertAdjacentHTML('afterend', '<div class="row2"><button id="wxBtn">🌦️ Real weather: On</button><button id="wxTown">📍 Set my town</button></div>');
+try { WX.town = localStorage.getItem('dragonWxTown') || ''; } catch(e) {}
+$('wxTown').parentElement.insertAdjacentHTML('afterend', `<div id="townRow" class="row2" style="display:none;flex-wrap:wrap;gap:6px;align-items:center">
+  <input id="townIn" placeholder="Your town, like Springfield" style="flex:1;min-width:160px;padding:8px 10px;border-radius:10px;border:1px solid #888;font-size:15px">
+  <button id="townGo" class="primary">✅ Save</button><div id="townMsg" class="hint" style="width:100%"></div></div>`);
+$('wxTown').onclick = () => { const r = $('townRow'); r.style.display = r.style.display === 'none' ? 'flex' : 'none'; $('townIn').value = WX.town || ''; $('townMsg').textContent = ''; if (r.style.display !== 'none') $('townIn').focus(); };
+async function saveTown(){
+  const name = $('townIn').value.trim(); if (!name){ $('townMsg').textContent = 'Type the name of your town first 🙂'; return; }
+  $('townMsg').textContent = '🔎 Looking for ' + name + '…';
+  try {
+    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=' + encodeURIComponent(name.split(',')[0].trim()));
+    const j = await r.json(), g = j.results && j.results[0];
+    if (!g){ $('townMsg').textContent = "Hmm, I couldn't find that town. Try just the town name, like Springfield."; return; }
+    const pos = {lat: Math.round(g.latitude*10)/10, lon: Math.round(g.longitude*10)/10}; WX.town = g.name; WX.noPlace = false; WX.on = true; WX.mode = 'real'; WX.offline = false; try { localStorage.setItem('dragonWxMode', 'real'); } catch(e) {}
+    try { localStorage.setItem('dragonWxPos', JSON.stringify(pos)); localStorage.setItem('dragonWxTown', g.name); localStorage.setItem('dragonWeather', 'on'); } catch(e) {}
+    WX.code = null; renderWx(); await wxFetch();
+    $('townMsg').textContent = `✅ Got it! Weather for ${g.name}${g.admin1 ? ', ' + g.admin1 : ''}.`;
+  } catch(e) { $('townMsg').textContent = 'The weather needs the internet. Try again in a little bit!'; }
+}
+$('townGo').onclick = saveTown;
+$('townIn').addEventListener('keydown', e => { if (e.key === 'Enter') saveTown(); e.stopPropagation(); });
+$('wxBtn').onclick = () => { WX.on = !WX.on; try { localStorage.setItem('dragonWeather', WX.on ? 'on' : 'off'); } catch(e) {} renderWx(); if (WX.on) wxFetch(); };
+setTimeout(() => wxFetch(), 2500); setInterval(() => wxFetch(), 15*60e3); renderWx();
+// hot summer days make dragons warm outside
+setInterval(() => { if (WX.on && WX.temp !== null && mode === 'home' && !noDragon && OUTDOOR.has(pet.room) && typeof heatUp === 'function'){ if (WX.temp >= 85) heatUp(0.25); else if (WX.temp >= 78) heatUp(0.1); } }, 1000);
+// real snow only falls when it's really snowing (if real weather is on and we know the weather)
+{ const base = drawFalling; drawFalling = function(kind, n){ if (kind === 'snow' && WX.on && WX.code !== null && wxKind() !== 'snow') return; base(kind, n); }; }
+function wxOutside(){ return (mode === 'home' && OUTDOOR.has(pet.room)) || ['meadow', 'race', 'map', 'game', 'course', 'falls'].includes(mode); }
+{ const base = draw; draw = function(){ base();
+    const k = wxKind(); if (k === 'none' || k === 'clear') return;
+    const out = wxOutside(), inWin = mode === 'home' && !OUTDOOR.has(pet.room);
+    if (!out){ return; }
+    // darker, grayer sky
+    const dim = {partly: 0.04, cloudy: 0.12, fog: 0.05, rain: 0.18, snow: 0.08, storm: 0.32}[k] || 0;
+    if (dim){ ctx.fillStyle = `rgba(40,50,70,${dim})`; ctx.fillRect(0, 0, W, H); }
+    if (k === 'cloudy' || k === 'rain' || k === 'storm' || k === 'partly'){ // drifting gray clouds across the top
+      const n = k === 'partly' ? 4 : 7, night = !(hour() >= 7 && hour() < 19);
+      for (let i = 0; i < n; i++){ const x = ((i*W*0.37 + t*(8 + WX.wind*0.6)) % (W + 300)) - 150, y = 40 + (i*53) % 110, c = night ? (k === 'storm' ? 'rgba(40,42,55,.85)' : 'rgba(110,115,140,.7)') : k === 'partly' ? 'rgba(255,255,255,.55)' : k === 'storm' ? 'rgba(70,75,90,.75)' : 'rgba(150,155,170,.6)';
+        ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y, 80, 26, 0, 0, 7); ctx.ellipse(x - 40, y + 4, 50, 22, 0, 0, 7); ctx.ellipse(x + 45, y + 2, 55, 24, 0, 0, 7); ctx.ellipse(x + 5, y - 16, 45, 24, 0, 0, 7); ctx.fill(); } }
+    if (k === 'fog'){ const g = ctx.createLinearGradient(0, H*0.3, 0, H); g.addColorStop(0, 'rgba(235,240,245,0)'); g.addColorStop(1, 'rgba(235,240,245,.55)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+    if (k === 'rain' || k === 'storm'){
+      const want = k === 'storm' ? 220 : 140, slant = Math.min(6, WX.wind*0.25 + 1.5);
+      while (WX.drops.length < want) WX.drops.push({x: Math.random()*(W + 100) - 50, y: Math.random()*H, v: 13 + Math.random()*6, l: 10 + Math.random()*10});
+      ctx.strokeStyle = 'rgba(200,215,240,.55)'; ctx.lineWidth = 1.3; ctx.beginPath();
+      for (const d of WX.drops){ d.y += d.v; d.x += slant; if (d.y > H){ d.y = -20; d.x = Math.random()*(W + 100) - 50; ctx.moveTo(d.x, H - 6); } ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - slant*0.8, d.y - d.l); }
+      ctx.stroke();
+      // little splashes on the ground
+      ctx.fillStyle = 'rgba(220,230,250,.5)'; for (let i = 0; i < 8; i++){ const x = (i*137 + Math.floor(t*7)*53) % W, y = H*0.75 + ((i*71) % Math.max(1, H*0.22)); ctx.beginPath(); ctx.ellipse(x, y, 4, 1.4, 0, 0, 7); ctx.fill(); }
+    }
+    if (k === 'snow') drawFalling('snow', 90);
+    if (k === 'storm'){ if (t > WX.flash && Math.random() < 0.004) WX.flash = t + 0.25; if (t < WX.flash){ ctx.fillStyle = `rgba(255,255,255,${(WX.flash - t)*1.6})`; ctx.fillRect(0, 0, W, H); } }
+  }; }
+// 🌦️ weather without Wi-Fi: "changes by itself" make-believe weather, or pick one yourself
+const WX_MODES = ['real', 'auto', 'clear', 'partly', 'cloudy', 'rain', 'storm', 'snow', 'fog', 'off'];
+const WX_MODE_LABEL = {real: '🌦️ Weather: Real (needs Wi-Fi)', auto: '🎲 Weather: Changes by itself', clear: '☀️ Weather: Sunny', partly: '⛅ Weather: Some clouds', cloudy: '☁️ Weather: Cloudy', rain: '🌧️ Weather: Rain', storm: '⛈️ Weather: Thunderstorm', snow: '🌨️ Weather: Snow', fog: '🌫️ Weather: Fog', off: '🚫 Weather: Off'};
+const KIND_CODE = {clear: 0, partly: 2, cloudy: 3, rain: 61, storm: 95, snow: 73, fog: 45};
+WX.mode = (() => { try { return localStorage.getItem('dragonWxMode') || (localStorage.getItem('dragonWeather') === 'off' ? 'off' : 'real'); } catch(e) { return 'real'; } })();
+WX.on = WX.mode !== 'off';
+function fakeTemp(kind){ if (kind === 'snow') return 22 + Math.round(Math.random()*9); const s = SEASON(), base = {winter: 28, spring: 58, summer: 82, fall: 55}[s] || 60, h = hour(); return Math.round(base + (h >= 11 && h <= 16 ? 6 : h < 7 || h > 20 ? -7 : 0) + (kind === 'rain' || kind === 'storm' ? -4 : 0) + (Math.random()*6 - 3)); }
+function pickFake(){
+  const s = SEASON(), w = {winter: {clear: 2, partly: 2, cloudy: 3, snow: 4, fog: 1}, spring: {clear: 3, partly: 3, cloudy: 2, rain: 3, storm: 1, fog: 1}, summer: {clear: 5, partly: 3, cloudy: 1, rain: 1, storm: 2}, fall: {clear: 3, partly: 3, cloudy: 3, rain: 2, fog: 2}}[s] || {clear: 1};
+  let r = Math.random()*Object.values(w).reduce((a, b) => a + b, 0); for (const [k, v] of Object.entries(w)){ r -= v; if (r <= 0) return k; } return 'clear';
+}
+function setFake(kind, quiet){ const before = wxKind(); WX.code = KIND_CODE[kind]; WX.temp = fakeTemp(kind); WX.wind = kind === 'storm' ? 25 : Math.random()*12; WX.at = Date.now(); renderWx();
+  const now = wxKind(); if (!quiet && now !== before && WX_SAY[now] && mode === 'home' && !noDragon && !pet.sleeping) setTimeout(() => talk(WX_SAY[now].replace(' for real', '')), 1200); }
+function applyWxMode(quiet){
+  WX.on = WX.mode !== 'off'; WX.noPlace = false; WX.fake = WX.mode !== 'real';
+  if (WX.mode === 'off'){ WX.code = null; renderWx(); return; }
+  if (WX.mode === 'real'){ WX.code = null; renderWx(); realFetch(); return; }
+  if (WX.mode === 'auto'){ setFake(pickFake(), quiet); WX.nextAuto = Date.now() + (10 + Math.random()*10)*60e3; return; }
+  setFake(WX.mode, quiet);
+}
+// the real weather: if there's no internet, switch to make-believe weather by itself
+const realFetch = wxFetch;
+wxFetch = async function(){
+  if (WX.mode !== 'real') return;
+  await realFetch();
+  if (WX.mode === 'real' && WX.code === null && !WX.noPlace){ WX.offline = true; setFake(pickFake(), true); renderWx(); }
+};
+{ const base = renderWx; renderWx = function(){ base();
+    const el = $('wxLine'), b = $('wxBtn'); if (b) b.textContent = WX_MODE_LABEL[WX.mode] || WX_MODE_LABEL.real;
+    if (el && WX.on && WX.code !== null && WX.mode !== 'real'){ const k = wxKind(); el.textContent = `${WX_ICON[k]} ${WX.temp}°F · ${WX.mode === 'auto' ? 'make-believe' : 'you picked'}`; }
+    if (el && WX.mode === 'real' && WX.offline && WX.code !== null){ const k = wxKind(); el.textContent = `${WX_ICON[k]} ${WX.temp}°F · no Wi-Fi, make-believe`; }
+  }; }
+$('wxBtn').onclick = () => { const i = WX_MODES.indexOf(WX.mode); WX.mode = WX_MODES[(i + 1) % WX_MODES.length]; WX.offline = false; try { localStorage.setItem('dragonWxMode', WX.mode); localStorage.setItem('dragonWeather', WX.mode === 'off' ? 'off' : 'on'); } catch(e) {} applyWxMode(); };
+setInterval(() => { if (WX.mode === 'auto' && Date.now() > (WX.nextAuto || 0)) applyWxMode(); if (WX.mode === 'real' && WX.offline && Date.now() - WX.at > 20*60e3) setFake(pickFake()); }, 30e3);
+// a nicer message in the town box when there's no internet
+{ const sm = () => { const m = $('townMsg'); if (m && /needs the internet/.test(m.textContent)) m.textContent = "No Wi-Fi right now, so I can't look up the real weather. Tap the weather button until it says 🎲 Changes by itself, or pick a weather!"; };
+  setInterval(sm, 500); }
+setTimeout(() => applyWxMode(true), 300);
+// 🌦️ weather picker: one big button for each kind of weather
+const WX_PICK = [['real', '🌦️', 'Real'], ['auto', '🎲', 'Surprise'], ['clear', '☀️', 'Sunny'], ['partly', '⛅', 'Some clouds'], ['cloudy', '☁️', 'Cloudy'], ['rain', '🌧️', 'Rain'], ['storm', '⛈️', 'Storm'], ['snow', '🌨️', 'Snow'], ['fog', '🌫️', 'Fog'], ['off', '🚫', 'Off']];
+document.head.insertAdjacentHTML('beforeend', `<style>
+  #wxGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:6px 0}
+  #wxGrid button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;border-radius:12px;font-size:11px;line-height:1.1}
+  #wxGrid button .wi{font-size:26px}
+  #wxGrid button.on{background:#2350c8;border-color:#9db4ff;box-shadow:0 0 0 2px #9db4ff inset}
+  #wxTitle{font-weight:700;margin-top:6px;text-align:center}
+<\/style>`);
+$('wxBtn').parentElement.insertAdjacentHTML('beforebegin', `<div id="wxTitle">🌦️ Pick the weather</div><div id="wxGrid">${WX_PICK.map(([m, i, n]) => `<button data-wx="${m}"><span class="wi">${i}</span>${n}</button>`).join('')}</div>`);
+$('wxBtn').style.display = 'none';
+$('wxGrid').addEventListener('click', e => { const b = e.target.closest('[data-wx]'); if (!b) return;
+  WX.mode = b.dataset.wx; WX.offline = false; try { localStorage.setItem('dragonWxMode', WX.mode); localStorage.setItem('dragonWeather', WX.mode === 'off' ? 'off' : 'on'); } catch(e) {}
+  applyWxMode(); markWx(); try { sfx.pop(); } catch(e2) {} });
+function markWx(){ for (const b of $('wxGrid').querySelectorAll('[data-wx]')) b.classList.toggle('on', b.dataset.wx === WX.mode); }
+{ const base = renderWx; renderWx = function(){ base(); if ($('wxGrid')) markWx(); }; }
+markWx();
+// ---------- ✈️ Dragon Vacations: fly to the prettiest cities in the world ----------
+const CITIES = [
+  {id: 'paris', name: 'Paris', country: 'France', flag: '🇫🇷', lon: 2.35, lat: 48.86, food: ['🥐', 'croissants'], souv: ['🗼', 'a little Eiffel Tower'],
+   fact: 'The Eiffel Tower is about 1,083 feet tall, and it gets a new coat of paint about every 7 years!', sky: ['#ffb3a7', '#ffe3c2']},
+  {id: 'venice', name: 'Venice', country: 'Italy', flag: '🇮🇹', lon: 12.33, lat: 45.44, food: ['🍨', 'gelato'], souv: ['🎭', 'a fancy Venice mask'],
+   fact: 'Venice is built on more than 100 little islands, and people get around in boats instead of cars!', sky: ['#7cc4ef', '#fde2b8']},
+  {id: 'kyoto', name: 'Kyoto', country: 'Japan', flag: '🇯🇵', lon: 135.77, lat: 35.01, food: ['🍡', 'dango'], souv: ['🏮', 'a paper lantern'],
+   fact: 'Kyoto has about 1,600 temples, and in spring the cherry blossom trees turn everything pink!', sky: ['#9fd3f5', '#ffe6ef']},
+  {id: 'santorini', name: 'Santorini', country: 'Greece', flag: '🇬🇷', lon: 25.4, lat: 36.4, food: ['🫒', 'olives'], souv: ['🐚', 'a seashell'],
+   fact: 'Santorini is the top of an old volcano, and the houses are painted white to stay cool in the hot sun!', sky: ['#5aa9e6', '#ffd29e']},
+  {id: 'rio', name: 'Rio de Janeiro', country: 'Brazil', flag: '🇧🇷', lon: -43.2, lat: -22.9, food: ['🥥', 'fresh coconut water'], souv: ['🦜', 'a toy parrot'],
+   fact: "Rio's Sugarloaf Mountain has a cable car that rides all the way up to the top!", sky: ['#4fb3ea', '#c8f0ff']},
+  {id: 'capetown', name: 'Cape Town', country: 'South Africa', flag: '🇿🇦', lon: 18.4, lat: -33.9, food: ['🍊', 'juicy oranges'], souv: ['🐧', 'a penguin plushie'],
+   fact: 'Table Mountain is flat on top, and sometimes a cloud covers it like a tablecloth! Penguins live on a beach nearby, too!', sky: ['#6ec0f0', '#e0f4ff']},
+  {id: 'sydney', name: 'Sydney', country: 'Australia', flag: '🇦🇺', lon: 151.2, lat: -33.9, food: ['🍤', 'shrimp on the barbie'], souv: ['🦘', 'a toy kangaroo'],
+   fact: 'The Sydney Harbour Bridge is so big and curvy that people call it "the Coathanger"!', sky: ['#55b4ec', '#d5f1ff']},
+  {id: 'edinburgh', name: 'Edinburgh', country: 'Scotland', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', lon: -3.19, lat: 55.95, food: ['🍪', 'shortbread cookies'], souv: ['🏰', 'a toy castle'],
+   fact: 'Edinburgh Castle sits on top of an old volcano called Castle Rock!', sky: ['#a8c4dc', '#eef2f6']}
+];
+const HOME_SPOT = {lon: -86, lat: 42};
+const LANDS = [
+  [[-168,65],[-140,70],[-95,72],[-75,62],[-60,50],[-70,43],[-80,30],[-81,25],[-97,20],[-87,15],[-80,8],[-92,15],[-105,22],[-118,33],[-125,48],[-150,60]],
+  [[-80,8],[-60,10],[-35,-6],[-40,-22],[-55,-35],[-68,-55],[-75,-45],[-72,-20],[-81,-5]],
+  [[-10,36],[-10,44],[-5,48],[0,51],[5,58],[10,63],[20,70],[30,70],[40,65],[40,45],[28,41],[20,40],[12,38],[3,43]],
+  [[-17,15],[-10,30],[10,37],[32,31],[43,12],[51,11],[40,-15],[32,-28],[20,-35],[12,-17],[9,4],[-8,5]],
+  [[40,45],[40,65],[60,70],[100,77],[140,72],[170,66],[155,55],[135,45],[122,30],[110,20],[105,10],[95,15],[80,8],[72,20],[57,25],[48,30],[35,35]],
+  [[114,-22],[122,-18],[132,-12],[142,-11],[146,-19],[153,-28],[147,-38],[138,-35],[130,-32],[115,-34]],
+  [[-5,50],[-6,55],[-3,58],[0,53],[1,51]], [[130,31],[135,34],[140,36],[141,41],[142,44],[139,38],[132,33]],
+  [[-50,60],[-25,70],[-20,80],[-60,82],[-72,78]], [[48,-14],[50,-16],[47,-25],[44,-22],[44,-17]], [[172,-41],[175,-37],[178,-38],[171,-45],[167,-46]]
+];
+const trip = {state: 'world', city: null, from: null, fly: null, next: 0, goal: null, shots: 0, flash: 0};
+const souvenirs = () => (pet.souvenirs = pet.souvenirs || {});
+const photos = () => (pet.photos = pet.photos || {});
+function mapBox(){ const top = 70, bottom = H - (W < 600 ? 230 : 150), w = Math.min(W - 24, (bottom - top)*2.05), h = w/2.05; return {x: (W - w)/2, y: top + Math.max(0, ((bottom - top) - h)/2), w, h}; }
+function ll(lon, lat){ const B = mapBox(); return {x: B.x + (lon + 180)/360*B.w, y: B.y + (85 - lat)/145*B.h}; }
+function openTrip(){
+  if (noDragon) return;
+  confetti.length = 0; floats.length = 0;
+  mode = 'trip'; document.body.classList.add('trip'); trip.state = 'world'; trip.fly = null; trip.city = null; trip.at = trip.at || 'home';
+  tray.classList.remove('open'); try { $('trickTray').classList.remove('open'); $('talkBox').classList.remove('open'); } catch(e) {}
+  renderTrip(); talk(pick(['Where should we go on vacation? ✈️', 'Pick a city, and I\'ll fly us there! 🗺️']));
+}
+function closeTrip(){ mode = 'home'; document.body.classList.remove('trip'); layoutRoom(); savePet(); talk(pick(['Home sweet home! 🏠', 'That was the best vacation ever! ✈️'])); }
+function flyToCity(id){
+  const C = CITIES.find(c => c.id === id); if (!C || trip.fly) return;
+  if (pet.energy < 12){ talk("I'm too tired to fly that far… 😴 Let me take a nap first!"); return; }
+  const from = trip.at === 'home' ? HOME_SPOT : CITIES.find(c => c.id === trip.at) || HOME_SPOT;
+  trip.fly = {from, to: C, t0: t, dur: 3.2}; trip.state = 'world'; pet.energy = clamp(pet.energy - 8);
+  talk(`Wheee! Off to ${C.name}! ${C.flag}`); renderTrip();
+}
+function arriveCity(C){
+  trip.fly = null; trip.at = C.id; trip.city = C; trip.state = 'city'; floorY = Math.round(H*0.78);
+  for (let i = 0; i < segs.length; i++){ segs[i].x = -40 - i*6; segs[i].y = H*0.35; segs[i].a = 0; }
+  trip.goal = {x: W*0.4, y: H*0.4}; trip.next = t + 3; pet.happy = clamp(pet.happy + 10); confetti.length = 0; trip.lastShot = false; floats.length = 0;
+  if (!photos()[C.id]) pet.citiesSeen = (pet.citiesSeen || 0) + 1;
+  setTimeout(() => talk(`We made it to ${C.name}, ${C.country}! ${C.flag} It's so pretty!`), 600);
+  renderTrip(); savePet();
+}
+function cityAction(a){
+  const C = trip.city; if (!C) return; const h = segs[0];
+  if (a === 'photo'){ trip.flash = t + 0.35; photos()[C.id] = (photos()[C.id] || 0) + 1; try { sfx.pop(); } catch(e) {} talk(pick(['Say cheese! 📸', 'Smile! 📸 That one is going in my album!'])); trip.lastShot = true; renderTrip(); savePet(); }
+  if (a === 'save'){ try { const url = cv.toDataURL('image/png'); const l = document.createElement('a'); l.href = url; l.download = `dragon-in-${C.id}.png`; document.body.appendChild(l); l.click(); l.remove(); talk('Saved our vacation picture! 🖼️'); } catch(e) {} }
+  if (a === 'food'){ pet.full = clamp(pet.full + 15); pet.happy = clamp(pet.happy + 5); for (let k = 0; k < 6; k++) floats.push({x: h.x + (Math.random() - .5)*60, y: h.y - 20, text: C.food[0], size: 22, life: 1.2}); try { sfx.chew(); } catch(e) {} talk(`Yum! I'm trying ${C.food[1]}! ${C.food[0]}`); }
+  if (a === 'souv'){ if (souvenirs()[C.id]){ talk(`I already have ${C.souv[1]} from here! ${C.souv[0]}`); return; } if ((pet.coins || 0) < 10){ talk('I need 10 coins for a souvenir! 🪙'); return; }
+    pet.coins -= 10; souvenirs()[C.id] = true; burstConfetti(h.x, h.y, 40); try { sfx.coin(); } catch(e) {} talk(`I got ${C.souv[1]}! ${C.souv[0]} I love it!`); renderTrip(); savePet(); }
+  if (a === 'fact') talk(C.fact);
+  if (a === 'map'){ trip.state = 'world'; trip.city = null; renderTrip(); }
+}
+function renderTrip(){
+  const S = souvenirs(), P = photos(), got = CITIES.filter(c => S[c.id]).map(c => c.souv[0]).join(' ');
+  $('tripHudTxt').textContent = trip.state === 'city' && trip.city ? `${trip.city.flag} ${trip.city.name}` : '✈️ Dragon Vacations';
+  if (trip.state === 'city' && trip.city){
+    const C = trip.city;
+    $('tripBody').innerHTML = `<div class="sg-btns"><button class="big" data-ta="photo">📸 Take a photo</button>${trip.lastShot ? '<button class="big" data-ta="save">💾 Save picture</button>' : ''}<button class="big" data-ta="food">${C.food[0]} Try the food</button>
+      <button class="big" data-ta="souv">${S[C.id] ? C.souv[0] + ' Got it!' : '🎁 Souvenir (10 🪙)'}</button><button class="big" data-ta="fact">💡 Fun fact</button><button class="primary big" data-ta="map">🗺️ World map</button></div>`;
+  } else {
+    $('tripBody').innerHTML = `<div class="sg-msg"><small>${trip.fly ? '✈️ Flying…' : '👆 Tap a city on the map to fly there!'} · 🎁 Souvenirs: ${got || 'none yet'} · 📸 Cities visited: ${CITIES.filter(c => P[c.id]).length}/${CITIES.length}</small></div>
+      <div class="trip-cities">${CITIES.map(c => `<button data-city="${c.id}" ${trip.fly ? 'disabled' : ''}>${c.flag} ${c.name}${S[c.id] ? ' ' + c.souv[0] : ''}</button>`).join('')}</div>
+      <div class="sg-btns"><button class="primary big" id="tripHome">🏠 Fly home</button></div>`;
+  }
+}
+// ---- the world map ----
+function drawWorld(){
+  const B = mapBox();
+  const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#13314f'); sky.addColorStop(1, '#0d2238'); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  const sea = ctx.createLinearGradient(0, B.y, 0, B.y + B.h); sea.addColorStop(0, '#3a8fd1'); sea.addColorStop(1, '#2a6fb0');
+  ctx.fillStyle = sea; rr(B.x, B.y, B.w, B.h, 18); ctx.fill();
+  ctx.save(); rr(B.x, B.y, B.w, B.h, 18); ctx.clip();
+  ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1; for (let lon = -150; lon <= 180; lon += 30){ const a = ll(lon, 85), b = ll(lon, -60); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); } for (let lat = -60; lat <= 80; lat += 20){ const a = ll(-180, lat), b = ll(180, lat); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+  for (const L of LANDS){ ctx.beginPath(); L.forEach(([lo, la], i) => { const p = ll(lo, la); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.closePath(); ctx.fillStyle = '#7cc26a'; ctx.fill(); ctx.strokeStyle = '#e8d9a8'; ctx.lineWidth = 2.5; ctx.stroke(); }
+  ctx.restore();
+  // home
+  const hp = ll(HOME_SPOT.lon, HOME_SPOT.lat); ctx.font = '22px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🏠', hp.x, hp.y);
+  // cities
+  for (const c of CITIES){ const p = ll(c.lon, c.lat), here = trip.at === c.id, pulse = 1 + 0.15*Math.sin(t*3 + c.lon);
+    ctx.fillStyle = here ? '#ffd166' : '#ff5d8f'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 7*pulse, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.font = '700 12px system-ui'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.fillStyle = '#fff'; const lbl = (souvenirs()[c.id] ? c.souv[0] + ' ' : '') + c.name; ctx.strokeText(lbl, p.x, p.y - 15); ctx.fillText(lbl, p.x, p.y - 15); }
+  // flying dragon
+  let dp = trip.at === 'home' ? hp : (() => { const c = CITIES.find(x => x.id === trip.at); return c ? ll(c.lon, c.lat) : hp; })();
+  if (trip.fly){ const F = trip.fly, a = ll(F.from.lon, F.from.lat), b = ll(F.to.lon, F.to.lat), u = Math.min(1, (t - F.t0)/F.dur), mx = (a.x + b.x)/2, my = Math.min(a.y, b.y) - Math.hypot(b.x - a.x, b.y - a.y)*0.3;
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    dp = {x: (1-u)*(1-u)*a.x + 2*(1-u)*u*mx + u*u*b.x, y: (1-u)*(1-u)*a.y + 2*(1-u)*u*my + u*u*b.y};
+    if (u >= 1) arriveCity(F.to); }
+  ctx.font = '30px system-ui'; ctx.fillText('🐉', dp.x, dp.y - 14 + Math.sin(t*6)*2);
+  ctx.textBaseline = 'alphabetic';
+}
+// ---- the cities ----
+function bldg(x, y, w, h, c, roof, wins){ ctx.fillStyle = c; ctx.fillRect(x, y - h, w, h); if (roof){ ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - 3, y - h); ctx.lineTo(x + w/2, y - h - w*0.35); ctx.lineTo(x + w + 3, y - h); ctx.fill(); }
+  if (wins){ ctx.fillStyle = wins; for (let yy = y - h + 10; yy < y - 14; yy += 18) for (let xx = x + 6; xx < x + w - 8; xx += 14) ctx.fillRect(xx, yy, 7, 10); } }
+function drawCity(C){
+  const G = Math.round(H*0.78), day = hour() >= 7 && hour() < 19;
+  const sky = ctx.createLinearGradient(0, 0, 0, G); sky.addColorStop(0, day ? C.sky[0] : '#1b2550'); sky.addColorStop(1, day ? C.sky[1] : '#4a4f86'); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  if (!day){ ctx.fillStyle = '#fff'; for (let k = 0; k < 40; k++){ ctx.globalAlpha = 0.4 + 0.5*Math.abs(Math.sin(t + k)); ctx.fillRect((k*97) % W, (k*53) % (G*0.6), 2, 2); } ctx.globalAlpha = 1; }
+  ctx.fillStyle = day ? 'rgba(255,255,255,.8)' : '#fff6cf'; ctx.beginPath(); ctx.arc(W*0.84, H*0.13, day ? 34 : 24, 0, 7); ctx.fill();
+  const s = Math.min(1.25, Math.max(0.6, W/1100));
+  (CITY_DRAW[C.id] || cParis)(G, s, day);
+}
+function water(y0, y1, c0, c1){ const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, c0); g.addColorStop(1, c1); ctx.fillStyle = g; ctx.fillRect(0, y0, W, y1 - y0);
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5; for (let k = 0; k < 14; k++){ const x = ((k*131 + t*14) % (W + 60)) - 30, y = y0 + 10 + (k*37) % Math.max(10, y1 - y0 - 14); ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 10, y - 4, x + 20, y); ctx.stroke(); } }
+function cParis(G, s, day){
+  ctx.fillStyle = '#c9a98a'; for (let x = -20; x < W; x += 70*s){ const h = (80 + ((x*7) % 40))*s; bldg(x, G - 40*s, 66*s, h, '#efe2c6', '#7f8ea3', day ? '#9fb7cc' : '#ffd77a'); }
+  // Eiffel Tower
+  const ex = W*0.66, base = G - 40*s, th = Math.min(H*0.62, 380*s); ctx.strokeStyle = '#6b4f3a'; ctx.lineWidth = 3*s;
+  ctx.beginPath(); ctx.moveTo(ex - 70*s, base); ctx.quadraticCurveTo(ex - 18*s, base - th*0.45, ex - 4*s, base - th); ctx.moveTo(ex + 70*s, base); ctx.quadraticCurveTo(ex + 18*s, base - th*0.45, ex + 4*s, base - th); ctx.stroke();
+  ctx.lineWidth = 1.2*s; for (let k = 1; k < 16; k++){ const y = base - th*k/16, w = 70*s*Math.pow(1 - k/16, 1.6) + 5*s; ctx.beginPath(); ctx.moveTo(ex - w, y); ctx.lineTo(ex + w, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(ex - w, y); ctx.lineTo(ex + w*0.7, y - th/16); ctx.stroke(); }
+  ctx.fillStyle = '#6b4f3a'; ctx.fillRect(ex - 46*s, base - th*0.3, 92*s, 6*s); ctx.fillRect(ex - 24*s, base - th*0.6, 48*s, 5*s); ctx.beginPath(); ctx.arc(ex, base - 30*s, 34*s, Math.PI, 0); ctx.fillStyle = sky0(); ctx.fill();
+  if (!day){ ctx.fillStyle = 'rgba(255,220,120,.9)'; for (let k = 0; k < 20; k++){ const u = k/20, y = base - th*u, w = 70*s*Math.pow(1 - u, 1.6); if (Math.sin(t*8 + k) > 0.3){ ctx.beginPath(); ctx.arc(ex + (k % 2 ? w : -w)*0.8, y, 2, 0, 7); ctx.fill(); } } }
+  water(G - 40*s, G + 6, '#5b8fb8', '#3f6f96'); ctx.fillStyle = '#b8a07e'; ctx.fillRect(0, G, W, H - G);
+  for (let k = 0; k < 4; k++){ const x = W*(0.08 + k*0.12); ctx.fillStyle = ['#d7263d', '#2e86ab', '#d7263d', '#3c9d4d'][k]; ctx.beginPath(); ctx.moveTo(x - 26, G + 24); ctx.lineTo(x, G + 6); ctx.lineTo(x + 26, G + 24); ctx.fill(); ctx.fillStyle = '#555'; ctx.fillRect(x - 1, G + 24, 2, 26); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, G + 52, 9, 0, 7); ctx.fill(); }
+}
+function sky0(){ return 'rgba(0,0,0,0)'; }
+function cVenice(G, s, day){
+  const cols = ['#e07a5f', '#f2cc8f', '#d68c45', '#c96f6f', '#f4a261', '#e9c46a'];
+  for (let k = 0, x = -10; x < W; k++, x += 78*s){ const h = (110 + (k*29 % 50))*s; ctx.fillStyle = cols[k % cols.length]; ctx.fillRect(x, G - 30*s - h, 76*s, h);
+    ctx.fillStyle = day ? '#5b4636' : '#ffd77a'; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++){ const wx = x + 10*s + c*22*s, wy = G - 30*s - h + 16*s + r*30*s; if (wy > G - 50*s) continue; ctx.beginPath(); ctx.moveTo(wx, wy + 18*s); ctx.lineTo(wx, wy + 6*s); ctx.arc(wx + 6*s, wy + 6*s, 6*s, Math.PI, 0); ctx.lineTo(wx + 12*s, wy + 18*s); ctx.fill(); }
+    ctx.fillStyle = '#7a3e2b'; ctx.fillRect(x, G - 30*s - h - 6*s, 76*s, 6*s); }
+  // bell tower
+  const bx = W*0.78; ctx.fillStyle = '#c0583f'; ctx.fillRect(bx, G - 30*s - 300*s, 40*s, 300*s); ctx.fillStyle = '#f1e3c8'; ctx.fillRect(bx - 4*s, G - 30*s - 300*s, 48*s, 40*s); ctx.fillStyle = '#3f7d5a'; ctx.beginPath(); ctx.moveTo(bx - 6*s, G - 330*s); ctx.lineTo(bx + 20*s, G - 400*s); ctx.lineTo(bx + 46*s, G - 330*s); ctx.fill();
+  water(G - 30*s, H, '#2a9d8f', '#1d6f68');
+  // gondola
+  const gx = ((t*30) % (W + 300)) - 150, gy = G + 30; ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(gx - 80, gy - 14); ctx.quadraticCurveTo(gx, gy + 14, gx + 80, gy - 18); ctx.quadraticCurveTo(gx, gy + 2, gx - 80, gy - 14); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillRect(gx + 30, gy - 44, 10, 18); ctx.fillStyle = '#d62828'; for (let k = 0; k < 3; k++) ctx.fillRect(gx + 30, gy - 42 + k*6, 10, 3); ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(gx + 35, gy - 50, 6, 0, 7); ctx.fill(); ctx.strokeStyle = '#6b4f3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(gx + 44, gy - 34); ctx.lineTo(gx + 70, gy + 10); ctx.stroke();
+  for (let k = 0; k < 6; k++){ const x = W*(0.05 + k*0.18); ctx.fillStyle = '#fff'; ctx.fillRect(x, G - 40*s, 5, 60); ctx.fillStyle = '#1d4e89'; for (let j = 0; j < 3; j++) ctx.fillRect(x, G - 34*s + j*16, 5, 7); }
+}
+function blossom(x, y, r){ ctx.fillStyle = '#6b4a3a'; ctx.fillRect(x - 5, y, 10, r*1.3); ctx.fillStyle = '#ffc1d9'; for (let k = 0; k < 7; k++){ ctx.beginPath(); ctx.arc(x + Math.cos(k)*r*0.7, y - r*0.2 + Math.sin(k*1.7)*r*0.4, r*0.55, 0, 7); ctx.fill(); } ctx.fillStyle = '#ff9ec4'; ctx.beginPath(); ctx.arc(x + r*0.3, y - r*0.3, r*0.35, 0, 7); ctx.fill(); }
+function cKyoto(G, s, day){
+  ctx.fillStyle = day ? '#8fb3a0' : '#2c3e46'; ctx.beginPath(); ctx.moveTo(0, G - 120*s); for (let x = 0; x <= W; x += 30) ctx.lineTo(x, G - 140*s - Math.sin(x*0.006)*60*s); ctx.lineTo(W, G); ctx.lineTo(0, G); ctx.fill();
+  // pagoda
+  const px = W*0.62; for (let k = 0; k < 5; k++){ const y = G - 20*s - k*58*s, w = (120 - k*16)*s; ctx.fillStyle = '#8b2e2e'; ctx.fillRect(px - w*0.35, y - 40*s, w*0.7, 40*s); ctx.fillStyle = '#2f2f3a'; ctx.beginPath(); ctx.moveTo(px - w*0.75, y - 36*s); ctx.quadraticCurveTo(px, y - 66*s, px + w*0.75, y - 36*s); ctx.lineTo(px + w*0.5, y - 44*s); ctx.lineTo(px - w*0.5, y - 44*s); ctx.fill();
+    if (!day){ ctx.fillStyle = '#ffd77a'; ctx.fillRect(px - 8*s, y - 30*s, 16*s, 14*s); } }
+  ctx.strokeStyle = '#c9a84a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px, G - 310*s); ctx.lineTo(px, G - 360*s); ctx.stroke();
+  // torii gate
+  const tx = W*0.25; ctx.fillStyle = '#e0372d'; ctx.fillRect(tx - 70*s, G - 160*s, 14*s, 160*s); ctx.fillRect(tx + 56*s, G - 160*s, 14*s, 160*s); ctx.fillRect(tx - 80*s, G - 140*s, 160*s, 10*s); ctx.fillStyle = '#222'; ctx.beginPath(); ctx.moveTo(tx - 96*s, G - 176*s); ctx.quadraticCurveTo(tx, G - 158*s, tx + 96*s, G - 176*s); ctx.lineTo(tx + 90*s, G - 164*s); ctx.lineTo(tx - 90*s, G - 164*s); ctx.fill();
+  ctx.fillStyle = sg(day ? '#8cc57a' : '#305a33', 'grass'); ctx.fillRect(0, G, W, H - G);
+  for (const fx of [0.06, 0.42, 0.85, 0.96]) blossom(W*fx, G - 70*s, 48*s);
+  ctx.fillStyle = '#ffc1d9'; for (let k = 0; k < 30; k++){ const x = ((k*83 + t*25) % W), y = ((k*61 + t*40) % H); ctx.beginPath(); ctx.ellipse(x, y, 4, 2.5, t + k, 0, 7); ctx.fill(); }
+}
+function cSantorini(G, s, day){
+  water(G*0.55, H, '#1f6fb2', '#0f4c81');
+  ctx.fillStyle = day ? '#b9875f' : '#5a4436'; ctx.beginPath(); ctx.moveTo(W*0.25, H); ctx.lineTo(W*0.3, G*0.62); ctx.quadraticCurveTo(W*0.6, G*0.5, W, G*0.56); ctx.lineTo(W, H); ctx.fill();
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 7; k++){ const x = W*0.34 + k*W*0.09 + (r % 2)*20, y = G*0.6 + r*48*s + (k % 3)*8; if (x > W - 30) continue;
+    ctx.fillStyle = '#fbfbf7'; ctx.fillRect(x, y, 52*s, 40*s); ctx.fillStyle = day ? '#3a7bd5' : '#ffd77a'; ctx.fillRect(x + 8*s, y + 12*s, 10*s, 14*s); ctx.fillRect(x + 30*s, y + 12*s, 10*s, 14*s);
+    if ((k + r) % 3 === 0){ ctx.fillStyle = '#1f5fbf'; ctx.beginPath(); ctx.arc(x + 26*s, y, 18*s, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillRect(x + 25*s, y - 26*s, 2*s, 10*s); } }
+  // windmill
+  const wx = W*0.32, wy = G*0.6; ctx.fillStyle = '#fbfbf7'; ctx.fillRect(wx - 14, wy - 60, 28, 60); ctx.fillStyle = '#8a5a3b'; ctx.beginPath(); ctx.arc(wx, wy - 60, 15, Math.PI, 0); ctx.fill();
+  ctx.save(); ctx.translate(wx, wy - 58); ctx.rotate(t*0.8); ctx.strokeStyle = '#6b4f3a'; ctx.lineWidth = 2; for (let k = 0; k < 6; k++){ ctx.rotate(Math.PI/3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -40); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.fillRect(1, -40, 10, 26); } ctx.restore();
+  for (let k = 0; k < 3; k++){ const bx = ((k*300 + t*12) % (W + 100)) - 50, by = G*0.6 + 40 + k*30; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + 30, by); ctx.lineTo(bx + 24, by + 8); ctx.lineTo(bx + 6, by + 8); ctx.fill(); ctx.beginPath(); ctx.moveTo(bx + 15, by - 2); ctx.lineTo(bx + 15, by - 28); ctx.lineTo(bx + 28, by - 4); ctx.fill(); }
+}
+function palm(x, y, h){ ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 14, y - h*0.5, x + 6, y - h); ctx.stroke(); ctx.fillStyle = '#2f9e44'; for (let k = 0; k < 6; k++){ const a = -Math.PI/2 + (k - 2.5)*0.55 + Math.sin(t + k)*0.05; ctx.beginPath(); ctx.ellipse(x + 6 + Math.cos(a)*30, y - h + Math.sin(a)*12 + 8, 34, 8, a, 0, 7); ctx.fill(); } }
+function cRio(G, s, day){
+  ctx.fillStyle = day ? '#3d8b4f' : '#1e4429'; ctx.beginPath(); ctx.moveTo(W*0.45, G); ctx.quadraticCurveTo(W*0.5, G - 330*s, W*0.6, G - 340*s); ctx.quadraticCurveTo(W*0.68, G - 300*s, W*0.72, G); ctx.fill();
+  ctx.fillStyle = day ? '#4f9d5e' : '#24502f'; ctx.beginPath(); ctx.moveTo(-20, G); ctx.quadraticCurveTo(W*0.1, G - 260*s, W*0.25, G - 200*s); ctx.quadraticCurveTo(W*0.35, G - 120*s, W*0.42, G); ctx.fill();
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(W*0.4, G - 160*s); ctx.lineTo(W*0.58, G - 330*s); ctx.stroke(); const u = (t*0.06) % 1; ctx.fillStyle = '#e63946'; ctx.fillRect(W*0.4 + (W*0.18)*u - 7, G - 160*s - 170*s*u, 14, 12);
+  for (let k = 0; k < 9; k++){ const x = W*(0.72 + k*0.035), h = (60 + (k*23 % 50))*s; bldg(x, G, 26*s, h, '#e8e2d6', null, day ? '#8fb2c9' : '#ffd77a'); }
+  water(G - 4, G + 34, '#2c9ad1', '#4fc3e8'); ctx.fillStyle = '#f2dfae'; ctx.fillRect(0, G + 30, W, H - G - 30);
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 3; ctx.beginPath(); for (let x = 0; x <= W; x += 6) ctx.lineTo(x, H - 26 + Math.sin(x*0.05)*7); ctx.stroke();
+  palm(W*0.08, G + 70, 120); palm(W*0.9, G + 80, 110);
+}
+function cCape(G, s, day){
+  ctx.fillStyle = day ? '#7a8a7a' : '#353f3a'; ctx.beginPath(); ctx.moveTo(-20, G); ctx.lineTo(W*0.1, G - 200*s); ctx.lineTo(W*0.82, G - 210*s); ctx.lineTo(W + 20, G - 40*s); ctx.lineTo(W + 20, G); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; for (let k = 0; k < 9; k++){ ctx.beginPath(); ctx.ellipse(W*0.14 + k*W*0.085 + Math.sin(t*0.5 + k)*6, G - 212*s, 50*s, 16*s, 0, 0, 7); ctx.fill(); }
+  const cols = ['#ff5d8f', '#ffd166', '#06d6a0', '#118ab2', '#ef476f', '#9b5de5', '#f15bb5', '#00bbf9'];
+  for (let k = 0, x = 0; x < W; k++, x += 46*s){ ctx.fillStyle = cols[k % cols.length]; ctx.fillRect(x, G - 64*s, 44*s, 64*s); ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x, G - 68*s, 44*s, 6*s); ctx.fillStyle = day ? '#fff' : '#ffd77a'; ctx.fillRect(x + 8*s, G - 48*s, 10*s, 14*s); ctx.fillRect(x + 26*s, G - 48*s, 10*s, 14*s); }
+  water(G, G + 60, '#2b7bb9', '#1b5a8a'); ctx.fillStyle = '#efe0b9'; ctx.fillRect(0, G + 56, W, H - G - 56);
+  for (let k = 0; k < 4; k++){ const x = W*(0.12 + k*0.07), y = G + 86 + (k % 2)*8, b = Math.sin(t*3 + k)*2; ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(x, y + b, 9, 15, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(x + 2, y + 3 + b, 6, 11, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#ffa62b'; ctx.beginPath(); ctx.moveTo(x + 6, y - 10 + b); ctx.lineTo(x + 13, y - 8 + b); ctx.lineTo(x + 6, y - 6 + b); ctx.fill(); }
+}
+function cSydney(G, s, day){
+  for (let k = 0, x = W*0.55; x < W; k++, x += 34*s){ const h = (90 + (k*41 % 120))*s; bldg(x, G - 20, 30*s, h, '#9fb4c7', null, day ? '#d6e6f2' : '#ffd77a'); }
+  // the bridge
+  ctx.strokeStyle = '#5e6b78'; ctx.lineWidth = 6*s; ctx.beginPath(); ctx.moveTo(W*0.5, G - 30); ctx.quadraticCurveTo(W*0.78, G - 230*s, W*1.06, G - 30); ctx.stroke(); ctx.lineWidth = 4*s; ctx.beginPath(); ctx.moveTo(W*0.5, G - 70*s); ctx.lineTo(W*1.06, G - 70*s); ctx.stroke();
+  ctx.lineWidth = 1.5; for (let k = 1; k < 14; k++){ const x = W*0.5 + k*(W*0.56/14), u = k/14, y = G - 30 - 4*u*(1-u)*200*s; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, G - 70*s); ctx.stroke(); }
+  water(G - 30, H, '#1e88c7', '#0f5f96');
+  // sails on the harbor point
+  const ox = W*0.26, oy = G - 24; ctx.fillStyle = '#d9c7a5'; ctx.fillRect(ox - 120*s, oy, 240*s, 26); for (const [dx, h, w] of [[-90, 70, 60], [-40, 110, 70], [20, 130, 75], [80, 90, 60]]){ ctx.fillStyle = '#fbfbf5'; ctx.beginPath(); ctx.moveTo(ox + (dx - w/2)*s, oy); ctx.quadraticCurveTo(ox + (dx - w*0.1)*s, oy - h*s, ox + (dx + w/2)*s, oy - h*0.95*s); ctx.lineTo(ox + (dx + w/2)*s, oy); ctx.fill(); ctx.strokeStyle = '#d8dde3'; ctx.lineWidth = 1; ctx.stroke(); }
+  const fx = ((t*24) % (W + 200)) - 100; ctx.fillStyle = '#2f8f46'; ctx.fillRect(fx, G + 40, 70, 16); ctx.fillStyle = '#f2c94c'; ctx.fillRect(fx + 10, G + 30, 50, 12);
+}
+function cEdin(G, s, day){
+  ctx.fillStyle = day ? '#6f9a5c' : '#2c4128'; ctx.beginPath(); ctx.moveTo(-20, G); ctx.quadraticCurveTo(W*0.2, G - 130*s, W*0.42, G - 150*s); ctx.quadraticCurveTo(W*0.6, G - 160*s, W*0.7, G - 60*s); ctx.lineTo(W*0.75, G); ctx.fill();
+  ctx.fillStyle = day ? '#7d7466' : '#3d3832'; ctx.beginPath(); ctx.moveTo(W*0.25, G - 110*s); ctx.lineTo(W*0.32, G - 170*s); ctx.lineTo(W*0.6, G - 175*s); ctx.lineTo(W*0.64, G - 120*s); ctx.fill();
+  // castle
+  const cx0 = W*0.33; ctx.fillStyle = day ? '#a49d8f' : '#5a554c'; ctx.fillRect(cx0, G - 250*s, W*0.26, 80*s); for (let x = cx0; x < cx0 + W*0.26; x += 16*s) ctx.fillRect(x, G - 262*s, 9*s, 12*s);
+  for (const tx of [cx0 + 10*s, cx0 + W*0.13, cx0 + W*0.24]){ ctx.fillRect(tx - 12*s, G - 300*s, 26*s, 60*s); ctx.fillStyle = '#4d5866'; ctx.beginPath(); ctx.moveTo(tx - 15*s, G - 300*s); ctx.lineTo(tx + 1*s, G - 330*s); ctx.lineTo(tx + 17*s, G - 300*s); ctx.fill(); ctx.fillStyle = day ? '#a49d8f' : '#5a554c'; }
+  ctx.fillStyle = day ? '#3a3a44' : '#ffd77a'; for (let k = 0; k < 8; k++) ctx.fillRect(cx0 + 14*s + k*W*0.03, G - 225*s, 7*s, 14*s);
+  ctx.fillStyle = '#005eb8'; ctx.fillRect(cx0 + W*0.13, G - 352*s, 26, 16); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx0 + W*0.13, G - 352*s); ctx.lineTo(cx0 + W*0.13 + 26, G - 336*s); ctx.moveTo(cx0 + W*0.13 + 26, G - 352*s); ctx.lineTo(cx0 + W*0.13, G - 336*s); ctx.stroke(); ctx.fillStyle = '#444'; ctx.fillRect(cx0 + W*0.13 - 2, G - 352*s, 2, 22);
+  for (let k = 0, x = W*0.62; x < W; k++, x += 42*s){ const h = (80 + (k*31 % 60))*s; bldg(x, G, 40*s, h, '#8c8578', '#4d5866', day ? '#c9d3da' : '#ffd77a'); }
+  ctx.fillStyle = sg(day ? '#7cb26a' : '#2f4a2b', 'grass'); ctx.fillRect(0, G, W, H - G);
+  ctx.fillStyle = '#9b5de5'; for (let k = 0; k < 24; k++){ ctx.beginPath(); ctx.arc((k*71) % W, G + 14 + (k*37) % Math.max(10, H - G - 30), 4, 0, 7); ctx.fill(); }
+}
+// ---- move and draw ----
+function updateTrip(){
+  for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.y -= 0.7; f.life -= 0.02; if (f.life <= 0) floats.splice(i, 1); }
+  if (trip.state !== 'city') return;
+  const h = segs[0], N = segs.length, L = SEGLEN();
+  if (t > trip.next){ trip.next = t + 3 + Math.random()*3; trip.goal = {x: W*(0.12 + Math.random()*0.76), y: H*(0.18 + Math.random()*0.45)}; }
+  const g = trip.goal, dx = g.x - h.x, dy = g.y - h.y, d = Math.hypot(dx, dy), sp = Math.min(3.4, d*0.05), diff = ((Math.atan2(dy, dx) - h.a + Math.PI*3) % (Math.PI*2)) - Math.PI;
+  if (d > 3){ h.a += diff*0.1; h.x += Math.cos(h.a)*sp; h.y += Math.sin(h.a)*sp; } roaming = true; side = Math.cos(h.a) >= 0 ? 1 : -1;
+  for (let i = 1; i < N; i++){ const p = segs[i-1], s = segs[i], a = Math.atan2(p.y - s.y, p.x - s.x); s.a = a; s.x = p.x - Math.cos(a)*L; s.y = p.y - Math.sin(a)*L; }
+}
+function drawTrip(){
+  if (trip.state === 'city' && trip.city){ drawCity(trip.city); floorY = Math.round(H*0.78) + 40; drawDragon(); }
+  else drawWorld();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const f of floats){ ctx.globalAlpha = Math.max(0, f.life); ctx.font = `600 ${f.size}px system-ui`; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3; ctx.strokeText(f.text, f.x, f.y); ctx.fillText(f.text, f.x, f.y); }
+  ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic'; drawConfetti();
+  if (t < trip.flash){ ctx.fillStyle = `rgba(255,255,255,${(trip.flash - t)/0.35})`; ctx.fillRect(0, 0, W, H); }
+}
+{ const base = update; update = function(){ if (mode === 'trip'){ t += 1/60; updateTrip(); return; } base(); }; }
+{ const base = draw; draw = function(){ if (mode === 'trip'){ drawTrip(); return; } base(); }; }
+document.body.insertAdjacentHTML('beforeend', `<div id="tripHud"><span id="tripHudTxt">✈️ Dragon Vacations</span></div><div id="tripPanel"><div id="tripBody"></div></div>`);
+document.head.insertAdjacentHTML('beforeend', `<style>
+  #tripHud{position:fixed;top:calc(10px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);display:none;z-index:2;background:rgba(20,40,90,.9);border:1px solid rgba(160,190,255,.5);border-radius:14px;padding:8px 14px;font-weight:700;font-size:15px;color:#fff;white-space:nowrap}
+  #tripPanel{position:fixed;left:50%;bottom:calc(8px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);width:min(640px,96vw);display:none;flex-direction:column;gap:6px;z-index:2;background:rgba(20,40,90,.92);border:1px solid rgba(160,190,255,.5);border-radius:16px;padding:8px 10px;color:#fff}
+  #tripBody{display:flex;flex-direction:column;gap:6px} .trip-cities{display:flex;flex-wrap:wrap;gap:5px;justify-content:center} .trip-cities button{font-size:13px;padding:6px 9px}
+  body.trip #tripHud, body.trip #tripPanel{display:flex}
+  body.trip #hud, body.trip #tip, body.trip #roomBar, body.trip #tray, body.trip #trickTray, body.trip #emptyRoom, body.trip #talkBox, body.trip #decoBar{display:none!important}
+<\/style>`);
+$('courseBtn').insertAdjacentHTML('afterend', '<button id="tripBtn">✈️ Vacation</button>');
+$('tripBtn').onclick = openTrip;
+$('tripBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.city) flyToCity(b.dataset.city); if (b.dataset.ta) cityAction(b.dataset.ta); if (b.id === 'tripHome') closeTrip(); });
+addEventListener('pointerdown', e => {
+  if (mode !== 'trip' || e.target.closest('#tripPanel, #tripHud, button')) return;
+  if (trip.state === 'world' && !trip.fly){ for (const c of CITIES){ const p = ll(c.lon, c.lat); if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < 26){ flyToCity(c.id); return; } } }
+  if (trip.state === 'city' && segs.slice(0, 10).some(q => Math.hypot(e.clientX - q.x, e.clientY - q.y) < 30)){ pet.happy = clamp(pet.happy + 4); try { sfx.purr(); } catch(e2) {} floats.push({x: segs[0].x, y: segs[0].y - 30, text: '💖', size: 18, life: 1}); }
+});
+{ const base = wantedSong; wantedSong = function(){ return mode === 'trip' ? 'map' : base(); }; }
+// ---------- 🧳 vacations 2.0: pack your bags, bring money, stay for a few days ----------
+const PACK_ITEMS = [
+  {id: 'passport', icon: '🛂', name: 'Passport', why: 'You need it to fly to another country!'},
+  {id: 'bag', icon: '🛌', name: 'Sleeping bag', why: 'For sleeping at night.'},
+  {id: 'camera', icon: '📷', name: 'Camera', why: 'To take vacation photos.'},
+  {id: 'brush', icon: '🪥', name: 'Toothbrush', why: 'Brush those dragon teeth at bedtime!'},
+  {id: 'snack', icon: '🍖', name: 'Snacks', why: 'Yummy food for the long flight.'},
+  {id: 'bottle', icon: '🧃', name: 'Water bottle', why: 'Stay hydrated!'},
+  {id: 'sun', icon: '🧴', name: 'Sunscreen', why: 'For sunny places, so you don\'t get sunburned.'},
+  {id: 'coat', icon: '🧥', name: 'Warm coat', why: 'For chilly places.'},
+  {id: 'umb', icon: '☂️', name: 'Umbrella', why: 'In case it rains.'},
+  {id: 'toy', icon: '🧸', name: 'Favorite toy', why: 'So you never get homesick.'},
+  {id: 'swim', icon: '🩱', name: 'Swimsuit', why: 'For swimming at the beach.'}
+];
+const PACK_MAX = 9;
+// what each city is like (so you know what to pack)
+const CLIMATE = {paris: {w: '⛅ Mild, sometimes rainy', rain: 0.4}, venice: {w: '☀️ Warm, sometimes rainy', sunny: 1, rain: 0.35}, kyoto: {w: '🌸 Mild and sunny', sunny: 1},
+  santorini: {w: '☀️ Hot and sunny, with a beach', sunny: 1, beach: 1}, rio: {w: '☀️ Hot and sunny, with a beach', sunny: 1, beach: 1, rain: 0.25},
+  capetown: {w: '🌬️ Sunny and windy, with a beach', sunny: 1, beach: 1}, sydney: {w: '☀️ Sunny, with a beach', sunny: 1, beach: 1}, edinburgh: {w: '🧥 Cold and rainy', cold: 1, rain: 0.7}};
+const V = () => pet.vacation;   // the trip you're on: {city, days, day, night, packed, wallet, rainDay, spent}
+let plan = null;                 // the trip you're planning (before you leave)
+function planTrip(id){ const C = CITIES.find(c => c.id === id); if (!C || trip.fly) return; plan = {city: id, days: 2, packed: {}, wallet: Math.min(30, pet.coins || 0)}; trip.state = 'pack'; renderTrip(); talk(`Let's pack for ${C.name}! ${C.flag} What should we bring?`); }
+flyToCity = function(id){ if (V()) return; planTrip(id); };
+function leaveHome(){
+  const C = CITIES.find(c => c.id === plan.city);
+  if (!plan.packed.passport){ talk("Wait! We can't go without our passport! 🛂"); return; }
+  if (pet.energy < 12){ talk("I'm too tired to fly that far… 😴 Let me take a nap first!"); return; }
+  pet.coins = (pet.coins || 0) - plan.wallet;
+  const rainDay = Math.random() < (CLIMATE[C.id].rain || 0) ? 1 + Math.floor(Math.random()*plan.days) : 0;
+  pet.vacation = {city: C.id, days: plan.days, day: 1, night: false, packed: plan.packed, wallet: plan.wallet, rainDay, t0: 0, ate: 0, warned: {}}; plan = null; savePet();
+  trip.fly = {from: HOME_SPOT, to: C, t0: t, dur: 3.5}; trip.state = 'world'; pet.energy = clamp(pet.energy - 8);
+  if (V().packed.snack){ pet.full = clamp(pet.full + 15); setTimeout(() => talk('Munching my snacks on the way! 🍖'), 1500); } else talk(`Wheee! Off to ${C.name}! ${C.flag}`);
+  renderTrip();
+}
+const baseArrive = arriveCity;
+arriveCity = function(C){
+  if (trip.fly && trip.fly.home){ trip.fly = null; finishVacation(); return; }
+  baseArrive(C); const v = V(); if (v){ v.dayStart = t; v.night = false; }
+  if (v && v.packed.bottle) pet.water = clamp((pet.water || 0) + 30);
+  renderTrip();
+};
+function finishVacation(){
+  const v = V(); if (!v) return; pet.coins = (pet.coins || 0) + (v.wallet || 0);
+  const C = CITIES.find(c => c.id === v.city); pet.tripsTaken = (pet.tripsTaken || 0) + 1; pet.vacation = null; trip.at = 'home'; savePet();
+  mode = 'home'; document.body.classList.remove('trip'); layoutRoom();
+  setTimeout(() => talk(`Home sweet home! I loved ${C ? C.name : 'our trip'}! 🏠💖`), 600);
+}
+function flyHomeFromCity(){ const v = V(), C = CITIES.find(c => c.id === v.city); trip.state = 'world'; trip.city = null; trip.fly = {from: C, to: {lon: HOME_SPOT.lon, lat: HOME_SPOT.lat, name: 'home'}, t0: t, dur: 3.5, home: true}; talk('Bye bye! Flying home! ✈️🏠'); renderTrip(); }
+// days and nights
+function goToBed(){
+  const v = V(); if (!v || v.night) return; v.night = true; v.nightAt = t; v.slept = false;
+  if (v.packed.brush){ talk('Brushing my teeth… scrub scrub! 🪥 Good night!'); pet.clean = clamp(pet.clean + 15); }
+  else talk(v.packed.bag ? 'Good night! 😴' : 'Oh no, I forgot my sleeping bag! The floor is so hard… 😣');
+  renderTrip();
+}
+function wakeUp(){
+  const v = V(); if (!v || !v.night) return;
+  pet.energy = clamp(pet.energy + (v.packed.bag ? 60 : 25)); pet.happy = clamp(pet.happy + (v.packed.bag ? 5 : -10));
+  if (v.day >= v.days){ v.night = false; v.done = true; talk("What a great vacation! Time to fly home! ✈️"); renderTrip(); savePet(); return; }
+  v.day++; v.night = false; v.dayStart = t; v.ate = 0; v.warned = {}; trip.goal = {x: W*0.5, y: H*0.35};
+  talk(pick([`Good morning! It's day ${v.day} in ${trip.city.name}! ☀️`, `Day ${v.day}! What should we do today? 😊`])); renderTrip(); savePet();
+}
+const baseCityAction = cityAction;
+cityAction = function(a){
+  const v = V(), C = trip.city; if (!C) return;
+  if (a === 'bed') return goToBed(); if (a === 'wake') return wakeUp(); if (a === 'home') return flyHomeFromCity();
+  if (v && v.night) return;
+  if (a === 'photo' && v && !v.packed.camera){ talk("I wish I had packed my camera! 📷"); return; }
+  if (a === 'save' && v && !v.packed.camera) return;
+  if (a === 'food'){ if (!v) return baseCityAction(a); if (v.wallet < 5){ talk("We're out of money! 🪙 We should have brought more."); return; } v.wallet -= 5; v.ate++; renderTrip(); return baseCityAction(a); }
+  if (a === 'souv'){ if (!v) return baseCityAction(a); if (souvenirs()[C.id]){ talk(`I already have ${C.souv[1]} from here! ${C.souv[0]}`); return; }
+    if (v.wallet < 10){ talk('A souvenir costs 10 coins, and our wallet is too empty! 🪙'); return; } v.wallet -= 10; pet.coins = (pet.coins || 0) + 10; baseCityAction(a); renderTrip(); return; }
+  if (a === 'swim'){ if (!v.packed.swim){ talk('I forgot my swimsuit! 🩱 Maybe next time.'); return; } trip.swimUntil = t + 7; talk('Splash! The water is so nice! 🏊'); pet.happy = clamp(pet.happy + 8); pet.clean = clamp(pet.clean + 10); return; }
+  if (a === 'toy'){ trip.toyUntil = t + 5; pet.happy = clamp(pet.happy + 6); talk('Playing with my favorite toy! 🧸'); return; }
+  if (a === 'map') return;   // no leaving in the middle of a vacation
+  return baseCityAction(a);
+};
+const baseRenderTrip = renderTrip;
+renderTrip = function(){
+  const v = V();
+  if (trip.state === 'pack' && plan){
+    const C = CITIES.find(c => c.id === plan.city), n = Object.keys(plan.packed).filter(k => plan.packed[k]).length, cl = CLIMATE[C.id];
+    $('tripHudTxt').textContent = `🧳 Packing for ${C.name} ${C.flag}`;
+    $('tripBody').innerHTML = `<div class="sg-msg"><small>Weather there: <b>${cl.w}</b> · Suitcase: <b>${n}/${PACK_MAX}</b> things · tap again to take something out</small></div>
+      <div class="pack-grid">${PACK_ITEMS.map(it => `<button data-pk="${it.id}" class="${plan.packed[it.id] ? 'on' : ''}" title="${it.why}"><span class="wi">${it.icon}</span>${it.name}</button>`).join('')}</div>
+      <div class="sg-row" style="align-items:center;justify-content:center;gap:6px"><span>🪙 Money to bring:</span><button data-money="-10">−10</button><b style="min-width:44px;text-align:center">${plan.wallet}</b><button data-money="10">+10</button><small>(you have ${pet.coins || 0})</small></div>
+      <div class="sg-row" style="align-items:center;justify-content:center;gap:6px"><span>📅 Stay for:</span>${[1, 2, 3].map(d => `<button data-days="${d}" class="${plan.days === d ? 'on' : ''}">${d} ${d === 1 ? 'day' : 'days'}</button>`).join('')}</div>
+      <div class="sg-btns"><button class="big" id="packBack">◀ Back</button><button class="primary big" id="packGo">✈️ Let's go!</button></div>`;
+    return;
+  }
+  if (trip.state === 'city' && trip.city && v){
+    const C = trip.city, P = v.packed, cl = CLIMATE[C.id];
+    $('tripHudTxt').textContent = `${C.flag} ${C.name} · ${v.night ? '🌙 Night' : '☀️ Day'} ${v.day} of ${v.days} · 🪙 ${v.wallet}`;
+    if (v.done){ $('tripBody').innerHTML = `<div class="sg-msg">🧳 Vacation's over! Time to fly home.</div><div class="sg-btns"><button class="primary big" data-ta="home">✈️ Fly home</button></div>`; return; }
+    if (v.night){ $('tripBody').innerHTML = `<div class="sg-msg">🌙 Shh… your dragon is sleeping${v.inHotel ? ' in the cozy hotel bed' : P.bag ? ' in its sleeping bag' : ' on the floor'}.</div><div class="sg-btns"><button class="primary big" data-ta="wake">☀️ Wake up</button></div>`; return; }
+    $('tripBody').innerHTML = `<div class="sg-btns"><button class="big" data-ta="photo">${P.camera ? '📸' : '🚫📷'} Photo</button>${trip.lastShot ? '<button class="big" data-ta="save">💾 Save picture</button>' : ''}
+      <button class="big" data-ta="food">${C.food[0]} Eat (5 🪙)</button><button class="big" data-ta="souv">${souvenirs()[C.id] ? C.souv[0] + ' Got it!' : '🎁 Souvenir (10 🪙)'}</button>
+      ${cl.beach ? '<button class="big" data-ta="swim">🏊 Swim</button>' : ''}${P.toy ? '<button class="big" data-ta="toy">🧸 Play</button>' : ''}<button class="big" data-ta="fact">💡 Fun fact</button>
+      <button class="primary big" data-ta="bed">🌙 Bedtime</button></div>
+      <div class="sg-msg"><small>🧳 ${PACK_ITEMS.filter(i => P[i.id]).map(i => i.icon).join(' ') || 'nothing packed!'}</small></div>`;
+    return;
+  }
+  baseRenderTrip();
+  if (trip.state === 'world' && !trip.fly){ const b = $('tripBody').querySelector('.sg-msg small'); if (b && pet.tripsTaken) b.insertAdjacentText('beforeend', ` · ✈️ Trips: ${pet.tripsTaken}`); }
+};
+$('tripBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !plan) return;
+  if (b.dataset.pk){ const id = b.dataset.pk, n = Object.keys(plan.packed).filter(k => plan.packed[k]).length;
+    if (plan.packed[id]) delete plan.packed[id]; else if (n >= PACK_MAX){ talk(`The suitcase is full! 🧳 Tap something blue to take it out first.`); return; } else { plan.packed[id] = true; const it = PACK_ITEMS.find(x => x.id === id); try { sfx.pop(); } catch(e2) {} } renderTrip(); }
+  if (b.dataset.money){ plan.wallet = Math.max(0, Math.min(pet.coins || 0, plan.wallet + +b.dataset.money)); renderTrip(); }
+  if (b.dataset.days){ plan.days = +b.dataset.days; renderTrip(); }
+  if (b.id === 'packBack'){ plan = null; trip.state = 'world'; renderTrip(); }
+  if (b.id === 'packGo') leaveHome();
+}, true);
+// coming back to a vacation you were on (the game remembers it)
+const baseOpenTrip = openTrip;
+openTrip = function(){ baseOpenTrip(); const v = V(); if (v){ const C = CITIES.find(c => c.id === v.city); if (C){ trip.at = C.id; arriveCity(C); talk(`We're still on vacation in ${C.name}! ${C.flag}`); } } };
+closeTrip = function(){ if (V()) return; mode = 'home'; document.body.classList.remove('trip'); layoutRoom(); savePet(); };
+// the day goes by: morning → afternoon → evening, and surprises from what you packed (or forgot!)
+const baseUpdateTrip = updateTrip;
+updateTrip = function(){
+  const v = V();
+  if (trip.state === 'city' && v && v.night){
+    // sleeping: the dragon curls up on the ground
+    const S = {x: W*0.5, y: Math.round(H*0.78) + 30, w: 140};
+    if (!v.slept){ v.slept = true; }
+    try { curlInBed({segs}, S); } catch(e) {}
+    for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.y -= 0.7; f.life -= 0.02; if (f.life <= 0) floats.splice(i, 1); }
+    if (Math.random() < 0.01) floats.push({x: S.x + 30, y: S.y - 40, text: 'z', size: 16, life: 1});
+    if (t > v.nightAt + 9) wakeUp();
+    return;
+  }
+  baseUpdateTrip();
+  if (trip.state !== 'city' || !v || v.done) return;
+  const C = trip.city, cl = CLIMATE[C.id], dayLen = 150, u = (t - v.dayStart)/dayLen;
+  if (cl.sunny && u > 0.25 && !v.warned.sun){ v.warned.sun = 1; if (v.packed.sun) talk('Good thing we packed sunscreen! 🧴 No sunburn for me!'); else { pet.happy = clamp(pet.happy - 8); talk('Ouch! I forgot sunscreen… my scales are getting sunburned! 🥵'); } }
+  if (cl.cold && u > 0.1 && !v.warned.cold){ v.warned.cold = 1; if (v.packed.coat) talk('So cozy in my warm coat! 🧥'); else { pet.happy = clamp(pet.happy - 8); talk('Brrr! I should have packed my coat! 🥶'); } }
+  if (v.rainDay === v.day && u > 0.35 && !v.warned.rain){ v.warned.rain = 1; trip.rain = true; if (v.packed.umb) talk("It's raining! Good thing I have my umbrella! ☂️"); else { pet.clean = clamp(pet.clean + 5); pet.happy = clamp(pet.happy - 5); talk("It's raining and I forgot my umbrella… I'm all soggy! 🌧️"); } }
+  if (v.rainDay !== v.day) trip.rain = false;
+  if (u > 1 && !v.warned.late){ v.warned.late = 1; talk('*yawn* It\'s getting late… time for bed? 🌙'); }
+  if (trip.swimUntil > t){ const B = {x: W*0.5, y: Math.round(H*0.78) + 50}; trip.goal = {x: B.x + Math.sin(t)*W*0.3, y: B.y}; if (Math.random() < 0.15) floats.push({x: segs[0].x, y: segs[0].y, text: '💦', size: 14, life: 0.7}); }
+  if (trip.toyUntil > t && Math.random() < 0.05) floats.push({x: segs[0].x + 20, y: segs[0].y - 20, text: '🧸', size: 18, life: 0.9});
+};
+// ---- make the cities look more real: soft clouds, distant haze, birds, people, reflections, warm light, and day turning into evening ----
+function tripDaylight(){ const v = V(); if (!v) return {day: hour() >= 7 && hour() < 19, dusk: 0}; if (v.night) return {day: false, dusk: 0}; const u = Math.max(0, Math.min(1, (t - (v.dayStart || t))/150)); return {day: true, dusk: Math.max(0, (u - 0.6)/0.4)}; }
+const realHour = hour;
+const baseDrawCity = drawCity;
+drawCity = function(C){
+  const L = tripDaylight(), G = Math.round(H*0.78);
+  // pretend the clock so the city draws day or night lights
+  hour = () => L.day ? 12 : 23;
+  try { baseDrawCity(C); } finally { hour = realHour; }
+  // soft clouds and birds (daytime)
+  if (L.day){
+    for (let k = 0; k < 5; k++){ const x = ((k*W*0.27 + t*(6 + k)) % (W + 260)) - 130, y = 50 + (k*47) % 120; ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let j = 0; j < 4; j++){ ctx.beginPath(); ctx.ellipse(x + j*30 - 45, y + (j % 2)*6, 40, 16, 0, 0, 7); ctx.fill(); } }
+    ctx.strokeStyle = 'rgba(40,40,50,.6)'; ctx.lineWidth = 1.6; for (let k = 0; k < 4; k++){ const x = ((k*170 + t*40) % (W + 100)) - 50, y = 90 + k*22 + Math.sin(t*2 + k)*6, f = Math.sin(t*10 + k)*4; ctx.beginPath(); ctx.moveTo(x - 7, y - f); ctx.quadraticCurveTo(x - 3, y - 3, x, y); ctx.quadraticCurveTo(x + 3, y - 3, x + 7, y - f); ctx.stroke(); }
+  }
+  // warm sunlight glow, golden evening, and a little haze near the horizon
+  const glow = ctx.createRadialGradient(W*0.84, H*0.13, 10, W*0.84, H*0.13, Math.max(W, H)*0.8);
+  glow.addColorStop(0, L.day ? `rgba(255,240,200,${0.25 + L.dusk*0.25})` : 'rgba(180,190,255,.08)'); glow.addColorStop(1, 'rgba(255,240,200,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  if (L.dusk > 0){ ctx.fillStyle = `rgba(255,120,60,${L.dusk*0.25})`; ctx.fillRect(0, 0, W, H); ctx.fillStyle = `rgba(40,20,80,${L.dusk*0.2})`; ctx.fillRect(0, 0, W, H); }
+  const hz = ctx.createLinearGradient(0, G - 120, 0, G); hz.addColorStop(0, 'rgba(255,255,255,0)'); hz.addColorStop(1, L.day ? 'rgba(255,255,255,.14)' : 'rgba(120,130,200,.12)'); ctx.fillStyle = hz; ctx.fillRect(0, G - 120, W, 120);
+  // tiny people strolling along
+  for (let k = 0; k < 9; k++){ const dir = k % 2 ? 1 : -1, x = ((k*137 + dir*t*(14 + k*2)) % (W + 40) + W + 40) % (W + 40) - 20, y = G + 22 + (k % 3)*14, c = ['#e63946', '#457b9d', '#2a9d8f', '#f4a261', '#6d597a', '#264653'][k % 6], bob = Math.abs(Math.sin(t*6 + k))*1.5;
+    if (['venice', 'sydney', 'santorini'].includes(C.id) && y < G + 60) continue;
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y + 12, 5, 2, 0, 0, 7); ctx.fill(); ctx.fillStyle = c; rr(x - 3.5, y - 6 - bob, 7, 12, 3); ctx.fill(); ctx.fillStyle = '#f1c27d'; ctx.beginPath(); ctx.arc(x, y - 10 - bob, 3.4, 0, 7); ctx.fill(); ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - 2, y + 6 - bob); ctx.lineTo(x - 2 + Math.sin(t*8 + k)*2, y + 12); ctx.moveTo(x + 2, y + 6 - bob); ctx.lineTo(x + 2 - Math.sin(t*8 + k)*2, y + 12); ctx.stroke(); }
+  // rain
+  if (trip.rain && L.day){ ctx.fillStyle = 'rgba(40,50,70,.18)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = 'rgba(210,220,240,.6)'; ctx.lineWidth = 1.2; ctx.beginPath(); for (let k = 0; k < 120; k++){ const x = (k*53 + t*60) % W, y = (k*97 + t*700) % H; ctx.moveTo(x, y); ctx.lineTo(x - 3, y - 14); } ctx.stroke(); }
+  // night: stars and dark sky
+  if (!L.day){ ctx.fillStyle = 'rgba(10,15,40,.35)'; ctx.fillRect(0, 0, W, H); }
+};
+const baseDrawTrip = drawTrip;
+drawTrip = function(){
+  const v = V();
+  baseDrawTrip();
+  if (trip.state === 'city' && v){
+    const h = segs[0];
+    if (v.night && v.packed.bag){ /* the bag is drawn under the dragon below */ }
+    if (trip.rain && v.packed.umb && !v.night){ ctx.font = '40px system-ui'; ctx.textAlign = 'center'; ctx.fillText('☂️', h.x, h.y - 46); }
+    if (v.packed.coat && CLIMATE[trip.city.id].cold && !v.night){ ctx.font = '22px system-ui'; ctx.textAlign = 'center'; ctx.fillText('🧥', h.x - 20, h.y + 10); }
+  }
+  if (trip.state === 'pack' && plan) drawSuitcase();
+};
+// the sleeping bag goes under the dragon at night
+{ const base = drawDragon; drawDragon = function(){ const v = V(); if (mode === 'trip' && trip.state === 'city' && v && v.night && !v.inHotel && !window.__compDraw){ const x = W*0.5, y = Math.round(H*0.78) + 30, w = 160;
+      if (v.packed.bag){ const c = cfg.body || '#4cc9f0'; ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y + 18, w*0.55, 9, 0, 0, 7); ctx.fill(); ctx.fillStyle = shade(c, -0.15); rr(x - w/2, y - 14, w, 34, 16); ctx.fill(); ctx.fillStyle = shade(c, 0.25); rr(x - w/2 + w*0.3, y - 11, w*0.68, 28, 13); ctx.fill(); ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.ellipse(x - w*0.35, y, w*0.13, 12, -0.1, 0, 7); ctx.fill(); } }
+    base(); }; }
+function drawSuitcase(){
+  // a big open suitcase on the map with the things you packed
+  const w = Math.min(420, W*0.8), h = w*0.42, x = W/2 - w/2, y = 100 + h*0.55;
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#8d5a3b'; rr(x, y - h*0.55, w, h*0.6, 16); ctx.fill(); ctx.fillStyle = '#a86c47'; rr(x + 10, y - h*0.5, w - 20, h*0.5, 12); ctx.fill();
+  ctx.fillStyle = '#5b3a26'; rr(x - 6, y, w + 12, h, 18); ctx.fill(); ctx.fillStyle = '#e8d9c0'; rr(x + 10, y + 10, w - 20, h - 20, 12); ctx.fill();
+  ctx.strokeStyle = '#c9a84a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x + w*0.3, y); ctx.lineTo(x + w*0.3, y + h); ctx.moveTo(x + w*0.7, y); ctx.lineTo(x + w*0.7, y + h); ctx.stroke();
+  const its = PACK_ITEMS.filter(i => plan.packed[i.id]); ctx.font = `${Math.round(h*0.3)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  its.forEach((it, k) => { const cx = x + 40 + (k % 4)*(w - 80)/3, cy = y + h*0.32 + Math.floor(k/4)*h*0.38; ctx.fillText(it.icon, cx, cy + Math.sin(t*3 + k)*2); });
+  if (!its.length){ ctx.font = '600 16px system-ui'; ctx.fillStyle = '#7a6a55'; ctx.fillText('Tap the things below to pack them! 🧳', W/2, y + h/2); }
+  ctx.font = '600 18px system-ui'; ctx.fillStyle = '#fff'; ctx.fillText(`🪙 ${plan.wallet} coins in the wallet`, W/2, y - h*0.7); ctx.textBaseline = 'alphabetic';
+}
+document.head.insertAdjacentHTML('beforeend', `<style>
+  .pack-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:5px}
+  .pack-grid button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;font-size:11px;border-radius:12px}
+  .pack-grid button .wi{font-size:24px} .pack-grid button.on, #tripBody button.on{background:#2350c8;border-color:#9db4ff;box-shadow:0 0 0 2px #9db4ff inset}
+<\/style>`);
+// ---------- 🍽️ restaurants, 🏨 hotels and 🚌 city tours on vacation ----------
+const MENUS = {
+  paris: [['🥐', 'Croissant', 4], ['🥞', 'Crêpe with strawberries', 6], ['🍲', 'Onion soup', 7]],
+  venice: [['🍕', 'Pizza', 6], ['🍝', 'Spaghetti', 7], ['🍨', 'Gelato', 4]],
+  kyoto: [['🍣', 'Sushi', 7], ['🍜', 'Ramen', 6], ['🍡', 'Dango', 4]],
+  santorini: [['🥙', 'Gyro', 6], ['🥗', 'Greek salad', 5], ['🫒', 'Olives and bread', 4]],
+  rio: [['🍧', 'Açaí bowl', 5], ['🍖', 'Grilled meat', 8], ['🥥', 'Coconut water', 4]],
+  capetown: [['🐟', 'Fish and chips', 7], ['🍛', 'Curry', 6], ['🍊', 'Fresh oranges', 4]],
+  sydney: [['🥧', 'Meat pie', 6], ['🍤', 'Shrimp', 8], ['🍰', 'Pavlova', 5]],
+  edinburgh: [['🥣', 'Porridge', 4], ['🍟', 'Fish and chips', 7], ['🍪', 'Shortbread', 4]]
+};
+const TOURS = {
+  paris: [['🗼 The Eiffel Tower', 0.66, 0.42, 'The Eiffel Tower was built for a big World\'s Fair in 1889!'], ['🌊 The Seine River', 0.3, 0.72, 'The Seine River flows right through the middle of Paris, and lots of bridges cross over it!'], ['☕ The cafés', 0.15, 0.82, 'In Paris, people love sitting at little café tables outside and watching everyone walk by!']],
+  venice: [['🛶 The gondolas', 0.5, 0.84, 'Gondolas are long boats, and most of them are painted black!'], ['🏘️ The canal houses', 0.3, 0.55, 'The houses sit right on the water, so some people park a boat at their front door!'], ['🔔 The bell tower', 0.8, 0.4, 'The bell tower in Venice is about 323 feet tall!']],
+  kyoto: [['⛩️ The torii gate', 0.25, 0.6, 'A torii gate marks the way into a Shinto shrine!'], ['🏯 The pagoda', 0.62, 0.45, 'Kyoto has the tallest wooden pagoda in Japan. It is about 180 feet tall!'], ['🌸 The cherry trees', 0.9, 0.7, 'In spring, people have picnics under the cherry blossoms. It\'s called hanami!']],
+  santorini: [['⛪ The blue domes', 0.62, 0.5, 'Many churches on Santorini have bright blue roofs shaped like domes!'], ['🌬️ The windmill', 0.32, 0.45, 'Long ago, windmills like this one ground wheat into flour!'], ['🌋 The cliffs', 0.5, 0.7, 'These cliffs were made by a giant volcano eruption about 3,600 years ago!']],
+  rio: [['🚡 The cable car', 0.5, 0.45, 'The Sugarloaf cable car first opened in 1912!'], ['🏖️ The beach', 0.4, 0.85, 'The sidewalk by the beach has a wavy pattern made of little black and white stones!'], ['🏙️ The city', 0.85, 0.65, 'Rio has Carnival, one of the biggest parties in the whole world!']],
+  capetown: [['⛰️ Table Mountain', 0.5, 0.4, 'Table Mountain is about 3,500 feet high, and it\'s flat on top like a table!'], ['🌈 The colorful houses', 0.5, 0.68, 'In the Bo-Kaap neighborhood, the houses are painted in bright rainbow colors!'], ['🐧 The penguins', 0.2, 0.88, 'African penguins live on a beach near Cape Town!']],
+  sydney: [['🌉 The Harbour Bridge', 0.78, 0.6, 'The Sydney Harbour Bridge opened in 1932!'], ['⛵ The sail building', 0.26, 0.68, 'The famous sail-shaped roof is covered with more than a million tiles!'], ['⛴️ The ferries', 0.5, 0.86, 'Ferries carry people all around the harbor, like buses on the water!']],
+  edinburgh: [['🏰 The castle', 0.46, 0.45, 'Edinburgh Castle sits on top of an old volcano called Castle Rock!'], ['🏘️ The old town', 0.82, 0.68, 'The Royal Mile is a famous street that goes from the castle down to a palace!'], ['💜 The heather', 0.3, 0.88, 'Purple heather flowers grow all over the hills in Scotland!']]
+};
+let HOTEL_COST = 12, TOUR_COST = 8;
+trip.place = 'out';
+// ---- restaurant ----
+function openRestaurant(){ trip.place = 'restaurant'; trip.dish = null; trip.goal = {x: W*0.5, y: H*0.55}; talk(pick(['A table for one dragon, please! 🍽️', 'Mmm, it smells so good in here! 😋'])); renderTrip(); }
+function orderDish(i){
+  const v = V(), d = MENUS[trip.city.id][i]; if (!d) return;
+  if (v.wallet < d[2]){ talk(`The ${d[1]} costs ${d[2]} coins, but we only have ${v.wallet}! 🪙`); return; }
+  v.wallet -= d[2]; trip.dish = {icon: d[0], name: d[1], at: t}; pet.full = clamp(pet.full + 14 + d[2]); pet.happy = clamp(pet.happy + 5);
+  talk(`One ${d[1]}, please! ${d[0]}`); setTimeout(() => { try { sfx.chew(); } catch(e) {} talk(pick([`Yum! This ${d[1]} is delicious! ${d[0]}`, `Mmm! I love ${d[1]}! 😋`])); }, 1800); renderTrip(); savePet();
+}
+function drawRestaurant(){
+  const C = trip.city, G = Math.round(H*(W < 600 ? 0.42 : 0.55)), wall = {paris: '#b5523b', venice: '#c9893f', kyoto: '#7a3b2e', santorini: '#e8eef5', rio: '#2d9d78', capetown: '#d9822b', sydney: '#3a6ea5', edinburgh: '#5a4a3a'}[C.id];
+  ctx.fillStyle = wall; ctx.fillRect(0, 0, W, G); ctx.fillStyle = 'rgba(0,0,0,.12)'; for (let x = 0; x < W; x += 60) ctx.fillRect(x, 0, 2, G);
+  ctx.fillStyle = '#6b4a32'; ctx.fillRect(0, G, W, H - G); ctx.strokeStyle = 'rgba(0,0,0,.18)'; for (let x = 0; x < W; x += 50){ ctx.beginPath(); ctx.moveTo(x, G); ctx.lineTo(x - 80, H); ctx.stroke(); }
+  // a window showing the city, and a picture on the wall
+  const wx = W*0.62, wy = G*0.12, ww = Math.min(300, W*0.3), wh = G*0.5;
+  ctx.save(); ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip(); ctx.translate(wx, wy); ctx.scale(ww/W, wh/(H*0.85)); const keep = [floats.length]; drawCityOnly(C); ctx.restore();
+  ctx.strokeStyle = '#f3e6cc'; ctx.lineWidth = 8; ctx.strokeRect(wx, wy, ww, wh); ctx.beginPath(); ctx.moveTo(wx + ww/2, wy); ctx.lineTo(wx + ww/2, wy + wh); ctx.stroke();
+  ctx.fillStyle = '#e0c070'; ctx.fillRect(W*0.12, G*0.18, 110, 80); ctx.fillStyle = '#f7f1e3'; ctx.fillRect(W*0.12 + 8, G*0.18 + 8, 94, 64); ctx.font = '40px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(C.flag, W*0.12 + 55, G*0.18 + 42);
+  // hanging lights
+  for (let k = 0; k < 5; k++){ const x = W*(0.1 + k*0.2); ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 40); ctx.stroke(); ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.arc(x, 48, 9, 0, 7); ctx.fill(); const lg = ctx.createRadialGradient(x, 48, 2, x, 48, 90); lg.addColorStop(0, 'rgba(255,230,160,.35)'); lg.addColorStop(1, 'rgba(255,230,160,0)'); ctx.fillStyle = lg; ctx.fillRect(x - 90, 0, 180, 140); }
+  // tables
+  for (const [fx, me] of [[0.18, 0], [0.5, 1], [0.82, 0]]){ const x = W*fx, y = G + 40, tw = Math.min(180, W*0.26);
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y + 60, tw*0.55, 10, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#5a3d29'; ctx.fillRect(x - 6, y, 12, 58); ctx.fillStyle = C.id === 'paris' || C.id === 'venice' ? '#c0392b' : '#f4f1ea'; ctx.beginPath(); ctx.ellipse(x, y, tw/2, 16, 0, 0, 7); ctx.fill();
+    if (C.id === 'paris' || C.id === 'venice'){ ctx.fillStyle = '#fff'; for (let k = -3; k <= 3; k++) ctx.fillRect(x + k*tw/8 - 6, y - 10, 10, 20); }
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(x - tw*0.18, y - 2, 16, 6, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#f5d76e'; ctx.fillRect(x + tw*0.2, y - 18, 5, 14); ctx.fillStyle = `rgba(255,190,60,${0.7 + 0.3*Math.sin(t*12)})`; ctx.beginPath(); ctx.ellipse(x + tw*0.2 + 2.5, y - 22, 3, 5, 0, 0, 7); ctx.fill();
+    if (me && trip.dish){ const u = Math.min(1, (t - trip.dish.at)/1.2), bites = Math.max(0, Math.min(3, Math.floor((t - trip.dish.at - 1.8)/1.2))); ctx.font = `${36 - bites*7}px system-ui`; ctx.globalAlpha = bites >= 3 ? 0 : 1; ctx.fillText(trip.dish.icon, x - tw*0.18, y - 16 - (1 - u)*60); ctx.globalAlpha = 1; } }
+  // a waiter walking between the tables
+  const wxp = W*0.5 + Math.sin(t*0.4)*W*0.38, wyp = G + 30, f = Math.cos(t*0.4) > 0 ? 1 : -1;
+  ctx.fillStyle = '#222'; rr(wxp - 10, wyp - 20, 20, 44, 6); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillRect(wxp - 5, wyp - 18, 10, 26); ctx.fillStyle = '#f1c27d'; ctx.beginPath(); ctx.arc(wxp, wyp - 30, 9, 0, 7); ctx.fill();
+  ctx.fillStyle = '#c0c0c0'; ctx.beginPath(); ctx.ellipse(wxp + f*20, wyp - 12, 14, 4, 0, 0, 7); ctx.fill(); ctx.strokeStyle = '#333'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(wxp - 4, wyp + 24); ctx.lineTo(wxp - 4 + Math.sin(t*6)*3, wyp + 40); ctx.moveTo(wxp + 4, wyp + 24); ctx.lineTo(wxp + 4 - Math.sin(t*6)*3, wyp + 40); ctx.stroke();
+  ctx.textBaseline = 'alphabetic';
+}
+// ---- hotel ----
+function goHotel(){ const v = V(); trip.place = 'hotel'; if (!v.hotelNight || v.hotelNight !== v.day){ talk(`Welcome to the hotel! A room is ${HOTEL_COST} coins a night. 🏨`); } else talk('Back to our cozy hotel room! 🛏️'); renderTrip(); }
+function payHotel(){ const v = V(); if (v.hotelNight === v.day) return true; if (v.wallet < HOTEL_COST){ talk(`We need ${HOTEL_COST} coins for the room, but we only have ${v.wallet}. We can camp in the sleeping bag instead! 🏕️`); return false; } v.wallet -= HOTEL_COST; v.hotelNight = v.day; try { sfx.coin(); } catch(e) {} talk('Here\'s our room key! 🔑'); renderTrip(); savePet(); return true; }
+function hotelSleep(){ const v = V(); if (!payHotel()) return; v.inHotel = true; trip.place = 'hotel'; goToBed(); }
+function drawHotel(){
+  const C = trip.city, v = V(), night = v && v.night, G = Math.round(H*0.7);
+  ctx.fillStyle = '#efe4d2'; ctx.fillRect(0, 0, W, G); for (let x = 0; x < W; x += 40){ ctx.fillStyle = 'rgba(180,150,110,.12)'; ctx.fillRect(x, 0, 20, G); }
+  ctx.fillStyle = '#8a6a4c'; ctx.fillRect(0, G, W, H - G); ctx.fillStyle = '#b5413c'; ctx.beginPath(); ctx.ellipse(W*0.45, G + (H - G)*0.5, W*0.3, (H - G)*0.3, 0, 0, 7); ctx.fill();
+  // big window with the city outside
+  const wx = W*0.08, wy = G*0.1, ww = Math.min(360, W*0.36), wh = G*0.62;
+  ctx.save(); ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip(); ctx.translate(wx, wy); ctx.scale(ww/W, wh/(H*0.85)); drawCityOnly(C, night); ctx.restore();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 10; ctx.strokeRect(wx, wy, ww, wh); ctx.fillStyle = '#7d3b52'; ctx.fillRect(wx - 30, wy - 16, 34, wh + 40); ctx.fillRect(wx + ww - 4, wy - 16, 34, wh + 40);
+  // the hotel bed
+  const B = hotelBed(); ctx.fillStyle = '#5c3b25'; ctx.fillRect(B.x + B.w/2 - 14, B.y - 110, 18, 130); rr(B.x + B.w/2 - 20, B.y - 120, 30, 40, 8); ctx.fill();
+  ctx.fillStyle = '#5c3b25'; rr(B.x - B.w/2, B.y - 30, B.w, 56, 10); ctx.fill(); ctx.fillStyle = '#fdfbf6'; rr(B.x - B.w/2 + 6, B.y - 40, B.w - 12, 40, 10); ctx.fill();
+  ctx.fillStyle = '#3d6fb6'; rr(B.x - B.w/2 + 6, B.y - 30, B.w*0.62, 32, 10); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(B.x + B.w*0.3, B.y - 36, 26, 12, 0, 0, 7); ctx.fill();
+  // lamp and nightstand
+  const lx = B.x + B.w/2 + 40; ctx.fillStyle = '#6b4a32'; ctx.fillRect(lx - 24, B.y - 30, 48, 56); ctx.fillStyle = '#c9a84a'; ctx.fillRect(lx - 2, B.y - 70, 4, 40); ctx.fillStyle = night ? '#fff3c4' : '#f3e2b5'; ctx.beginPath(); ctx.moveTo(lx - 20, B.y - 66); ctx.lineTo(lx + 20, B.y - 66); ctx.lineTo(lx + 12, B.y - 92); ctx.lineTo(lx - 12, B.y - 92); ctx.fill();
+  // suitcase on the floor
+  ctx.fillStyle = '#8d5a3b'; rr(W*0.3, G + 20, 90, 60, 8); ctx.fill(); ctx.strokeStyle = '#c9a84a'; ctx.lineWidth = 3; ctx.strokeRect(W*0.3 + 30, G + 20, 30, 60);
+  ctx.font = '600 14px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#7a5a3a'; ctx.fillText(`🏨 Hotel ${C.name}`, W*0.75, 40);
+  if (night){ ctx.fillStyle = 'rgba(10,15,45,.55)'; ctx.fillRect(0, 0, W, H); const lg = ctx.createRadialGradient(lx, B.y - 80, 4, lx, B.y - 80, 180); lg.addColorStop(0, 'rgba(255,220,140,.35)'); lg.addColorStop(1, 'rgba(255,220,140,0)'); ctx.fillStyle = lg; ctx.fillRect(lx - 180, B.y - 260, 360, 360); }
+}
+function hotelBed(){ const G = Math.round(H*0.7), w = Math.min(260, W*0.42); return {x: W*0.68, y: W < 600 ? H*0.5 : G + (H - G)*0.25, w}; }
+// draw just the city (used for windows)
+function drawCityOnly(C, night){ const L = V(), keepN = L ? L.night : false; if (L && night !== undefined) L.night = night; try { const keepRain = trip.rain; drawCity(C); trip.rain = keepRain; } finally { if (L) L.night = keepN; } }
+// ---- city tour ----
+function startTour(){ const v = V(); if (v.wallet < TOUR_COST){ talk(`The tour costs ${TOUR_COST} coins, and we only have ${v.wallet}! 🪙`); return; } v.wallet -= TOUR_COST; trip.place = 'tour'; trip.tour = {i: 0, t0: t}; talk(`All aboard the ${trip.city.name} tour bus! 🚌`); renderTrip(); setTimeout(tourSay, 2500); savePet(); }
+function tourSay(){ if (trip.place !== 'tour') return; const S = TOURS[trip.city.id][trip.tour.i]; if (S) talk(S[3]); }
+function nextStop(){ if (trip.place !== 'tour') return; trip.tour.i++; trip.tour.t0 = t; if (trip.tour.i >= TOURS[trip.city.id].length){ trip.place = 'out'; pet.happy = clamp(pet.happy + 12); talk('That was an amazing tour! I learned so much! 🤩'); renderTrip(); return; } setTimeout(tourSay, 1800); renderTrip(); }
+function drawTour(){
+  const C = trip.city, stops = TOURS[C.id], S = stops[Math.min(trip.tour.i, stops.length - 1)], u = Math.min(1, (t - trip.tour.t0)/2.2), ease = u*u*(3 - 2*u);
+  const prev = trip.tour.i > 0 ? stops[trip.tour.i - 1] : [0, 0.5, 0.5], fx = prev[1] + (S[1] - prev[1])*ease, fy = prev[2] + (S[2] - prev[2])*ease, z = 1.2 + 0.5*Math.sin(Math.PI*0.5*Math.min(1, u*1.2));
+  const cx = Math.max(W/(2*z), Math.min(W - W/(2*z), fx*W)), cy = Math.max(H*0.45/z, Math.min(H - H*0.55/z, fy*H));
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.save(); ctx.translate(W/2, H*0.45); ctx.scale(z, z); ctx.translate(-cx, -cy); drawCityOnly(C); ctx.restore();
+  // the tour bus with your dragon on top
+  const bx = W*0.5 + Math.sin(t*0.6)*20, by = H - (W < 600 ? 300 : 210);
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(bx, by + 46, 110, 10, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#e63946'; rr(bx - 100, by - 20, 200, 62, 12); ctx.fill(); ctx.fillStyle = '#c1121f'; ctx.fillRect(bx - 100, by + 20, 200, 8);
+  ctx.fillStyle = '#bde0fe'; for (let k = 0; k < 5; k++) rr(bx - 88 + k*36, by - 10, 28, 22, 4), ctx.fill();
+  ctx.fillStyle = '#222'; for (const wx of [bx - 60, bx + 60]){ ctx.beginPath(); ctx.arc(wx, by + 42, 13, 0, 7); ctx.fill(); ctx.fillStyle = '#999'; ctx.beginPath(); ctx.arc(wx, by + 42, 5, 0, 7); ctx.fill(); ctx.fillStyle = '#222'; }
+  ctx.font = '700 13px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(`${C.name.toUpperCase()} TOURS`, bx, by + 36);
+  ctx.font = '40px system-ui'; ctx.fillText('🐉', bx + Math.sin(t*3)*3, by - 34);
+  // the stop sign
+  ctx.font = '800 22px system-ui'; ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.fillStyle = '#fff'; ctx.strokeText(`Stop ${trip.tour.i + 1}: ${S[0]}`, W/2, 100); ctx.fillText(`Stop ${trip.tour.i + 1}: ${S[0]}`, W/2, 100);
+}
+// ---- hook it all in ----
+const baseRT2 = renderTrip;
+renderTrip = function(){
+  const v = V();
+  if (trip.state === 'city' && trip.city && v && !v.done){
+    const C = trip.city;
+    if (trip.place === 'restaurant'){ $('tripHudTxt').textContent = `🍽️ Restaurant in ${C.name} · 🪙 ${v.wallet}`;
+      $('tripBody').innerHTML = `<div class="sg-msg"><b>📜 Menu</b></div><div class="sg-btns">${MENUS[C.id].map((d, i) => `<button class="big" data-dish="${i}">${d[0]} ${d[1]} · ${d[2]} 🪙</button>`).join('')}</div><div class="sg-btns"><button class="primary big" data-pl="out">🚪 Leave the restaurant</button></div>`; return; }
+    if (trip.place === 'hotel' && !v.night){ const paid = v.hotelNight === v.day; $('tripHudTxt').textContent = `🏨 Hotel ${C.name} · Day ${v.day} of ${v.days} · 🪙 ${v.wallet}`;
+      $('tripBody').innerHTML = `<div class="sg-msg"><small>${paid ? '🔑 You have a room for tonight!' : `A room costs ${HOTEL_COST} 🪙 a night.`}</small></div><div class="sg-btns">${paid ? '' : `<button class="big" data-pl="pay">🔑 Get a room (${HOTEL_COST} 🪙)</button>`}<button class="big" data-pl="bath">🛁 Take a bath</button><button class="primary big" data-pl="hsleep">🌙 Go to sleep</button><button class="big" data-pl="out">🚪 Go outside</button></div>`; return; }
+    if (trip.place === 'tour'){ $('tripHudTxt').textContent = `🚌 ${C.name} city tour`;
+      $('tripBody').innerHTML = `<div class="sg-msg"><small>Stop ${trip.tour.i + 1} of ${TOURS[C.id].length}</small></div><div class="sg-btns"><button class="primary big" data-pl="next">${trip.tour.i + 1 >= TOURS[C.id].length ? '🏁 End the tour' : '🚌 Next stop ▶'}</button></div>`; return; }
+    if (!v.night){ baseRT2();
+      const btns = $('tripBody').querySelector('.sg-btns'); if (btns){
+        btns.querySelector('[data-ta="food"]')?.remove();
+        btns.insertAdjacentHTML('afterbegin', `<button class="big" data-pl="restaurant">🍽️ Restaurant</button><button class="big" data-pl="hotel">🏨 Hotel</button><button class="big" data-pl="tour">🚌 City tour (${TOUR_COST} 🪙)</button>`);
+        const bed = btns.querySelector('[data-ta="bed"]'); if (bed) bed.innerHTML = '🏕️ Camp out tonight'; }
+      return; }
+  }
+  baseRT2();
+};
+$('tripBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.dish) orderDish(+b.dataset.dish);
+  const p = b.dataset.pl; if (!p) return;
+  if (p === 'restaurant') openRestaurant(); if (p === 'hotel') goHotel(); if (p === 'tour') startTour(); if (p === 'next') nextStop();
+  if (p === 'out'){ trip.place = 'out'; trip.goal = {x: W*0.5, y: H*0.4}; renderTrip(); }
+  if (p === 'pay') payHotel(); if (p === 'hsleep') hotelSleep();
+  if (p === 'bath'){ pet.clean = 100; pet.happy = clamp(pet.happy + 4); talk('Bubble bath time! 🛁🫧'); for (let k = 0; k < 10; k++) floats.push({x: segs[0].x + (Math.random() - .5)*80, y: segs[0].y - 20, text: '🫧', size: 18, life: 1.2}); }
+});
+// sleeping in the hotel bed instead of the sleeping bag
+const baseWake = wakeUp;
+wakeUp = function(){ const v = V(); if (v && v.inHotel){ pet.energy = clamp(pet.energy + 40); pet.happy = clamp(pet.happy + 8); v.packed = {...v.packed}; const had = v.packed.bag; v.packed.bag = true; try { baseWake(); } finally { v.packed.bag = had; if (V()) V().inHotel = false; } talk(pick(['What a comfy hotel bed! 😊', 'I slept so well in the hotel! 🛏️'])); return; } trip.place = 'out'; baseWake(); };
+{ const base = goToBed; goToBed = function(){ const v = V(); if (v && !v.inHotel) trip.place = 'out'; base(); }; }
+const baseUT2 = updateTrip;
+updateTrip = function(){
+  const v = V();
+  if (trip.state === 'city' && v && v.night && v.inHotel){
+    const B = hotelBed(); try { curlInBed({segs}, {x: B.x - B.w*0.12, y: B.y - 30, w: B.w*0.55}); } catch(e) {}
+    for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.y -= 0.7; f.life -= 0.02; if (f.life <= 0) floats.splice(i, 1); }
+    if (Math.random() < 0.01) floats.push({x: B.x, y: B.y - 70, text: 'z', size: 16, life: 1});
+    if (t > v.nightAt + 9) wakeUp();
+    return;
+  }
+  if (trip.state === 'city' && (trip.place === 'restaurant' || trip.place === 'hotel')){ trip.next = t + 99; trip.goal = trip.place === 'restaurant' ? {x: W*0.5 + 30, y: Math.round(H*(W < 600 ? 0.42 : 0.55)) - 10} : {x: W*0.55, y: H*0.45}; }
+  if (trip.place === 'tour'){ if (t > trip.tour.t0 + 9) nextStop(); for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.y -= 0.7; f.life -= 0.02; if (f.life <= 0) floats.splice(i, 1); } return; }
+  baseUT2();
+};
+const baseDT2 = drawTrip;
+drawTrip = function(){
+  const v = V();
+  if (trip.state === 'city' && trip.city && v && (trip.place === 'restaurant' || trip.place === 'hotel' || trip.place === 'tour' || v.inHotel)){
+    if (trip.place === 'tour') drawTour();
+    else { if (trip.place === 'restaurant') drawRestaurant(); else drawHotel(); floorY = H + 200; drawDragon(); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const f of floats){ ctx.globalAlpha = Math.max(0, f.life); ctx.font = `600 ${f.size}px system-ui`; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3; ctx.strokeText(f.text, f.x, f.y); ctx.fillText(f.text, f.x, f.y); }
+    ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic'; drawConfetti(); return;
+  }
+  baseDT2();
+};
+// a few more real-looking city details: street lamps along the street, and building shadows
+const baseDC3 = drawCity;
+drawCity = function(C){
+  baseDC3(C);
+  const G = Math.round(H*0.78), L = tripDaylight();
+  if (['venice', 'sydney', 'santorini'].includes(C.id)) return;
+  for (let k = 0; k < 6; k++){ const x = W*(0.08 + k*0.17), y = G + 8;
+    ctx.strokeStyle = '#2b2b2b'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y + 30); ctx.lineTo(x, y - 40); ctx.quadraticCurveTo(x, y - 50, x + 10, y - 50); ctx.stroke();
+    ctx.fillStyle = L.day && !L.dusk ? '#ddd' : '#ffe08a'; ctx.beginPath(); ctx.arc(x + 12, y - 46, 5, 0, 7); ctx.fill();
+    if (!L.day || L.dusk > 0.3){ const lg = ctx.createRadialGradient(x + 12, y - 46, 2, x + 12, y - 46, 60); lg.addColorStop(0, 'rgba(255,225,140,.45)'); lg.addColorStop(1, 'rgba(255,225,140,0)'); ctx.fillStyle = lg; ctx.fillRect(x - 50, y - 110, 125, 150); } }
+};
+// ---------- 🔥 Hard mode: a more realistic, more challenging game (picked per player) ----------
+if (!STAT_KEYS.includes('sick')) STAT_KEYS.push('sick');
+STAT_DEF.sick = false;
+const isHard = () => pet.difficulty === 'hard';
+// prices go up in hard mode
+for (const it of SHOP) if (it.basePrice === undefined) it.basePrice = it.price;
+for (const k in MENUS) for (const d of MENUS[k]) if (d[3] === undefined) d[3] = d[2];
+function applyPrices(){ const m = isHard() ? 1.5 : 1; for (const it of SHOP) it.price = Math.round(it.basePrice*m); for (const k in MENUS) for (const d of MENUS[k]) d[2] = Math.round(d[3]*m); HOTEL_COST = Math.round(12*m); TOUR_COST = Math.round(8*m); }
+applyPrices();
+// needs go down twice as fast, naps take longer, and rewards are smaller
+const coinWatch = {pet: null, last: 0};
+let neglect = 0, nextSickTalk = 0;
+{ const base = update; update = function(){
+    base();
+    if (coinWatch.pet !== pet){ coinWatch.pet = pet; coinWatch.last = pet.coins || 0; applyPrices(); renderHardBadge(); }
+    else { const c = pet.coins || 0; if (isHard() && c > coinWatch.last && !window.__noTax) pet.coins = coinWatch.last + Math.max(1, Math.round((c - coinWatch.last)*0.6)); coinWatch.last = pet.coins || 0; }
+    if (!isHard() || mode !== 'home' || noDragon) return;
+    const sec = 1/60, sick = !!pet.sick;
+    pet.full = clamp(pet.full - 100/7200*sec*(sick ? 1.5 : 1));
+    pet.clean = clamp(pet.clean - 100/10800*sec);
+    if (typeof pet.water === 'number') pet.water = clamp(pet.water - 100/5400*sec);
+    if (asleep) pet.energy = clamp(pet.energy - 100/180*sec*(sick ? 1.3 : 1));   // naps take about twice as long
+    else pet.energy = clamp(pet.energy - 100/10800*sec*(sick ? 3 : 1));
+    pet.happy = clamp(pet.happy - (100/16200 + (sick ? 0.02 : 0))*sec*60*sec);
+  }; }
+// 🤒 dragons can get sick if they're not taken care of
+setInterval(() => {
+  if (!isHard() || mode !== 'home' || noDragon) { neglect = Math.max(0, neglect - 1); return; }
+  const bad = pet.full < 15 || (pet.water ?? 100) < 15 || pet.clean < 15 || poops.filter(p => (p.room || 'living') === pet.room).length >= 3;
+  neglect = bad ? neglect + 1 : Math.max(0, neglect - 0.5);
+  if (!pet.sick && neglect > 90 && Math.random() < 0.04){ pet.sick = true; neglect = 0; talk("I don't feel so good… 🤒 I think I'm sick."); renderHardBadge(); savePet(); }
+  if (pet.sick && Date.now() > nextSickTalk){ nextSickTalk = Date.now() + 45000; talk(pick(['*cough cough* 🤒 Can we go to the vet?', 'My tummy hurts… 🤒', 'I feel too sick to play… 🤒'])); }
+  if (pet.sick && Math.random() < 0.3){ const h = segs[0]; floats.push({x: h.x + 18, y: h.y - 34, text: '🤒', size: 18, life: 1}); }
+}, 1000);
+// a sick dragon can't play games or go on trips
+function tooSick(){ if (pet.sick){ talk("I'm too sick for that… 🤒 Please take me to the 🩺 vet!"); return true; } return false; }
+for (const name of ['openSheepTime', 'openCourse', 'openTrip', 'openTraining']){ try { const f = eval(name); if (typeof f === 'function') eval(`${name} = function(){ if (tooSick()) return; return f.apply(this, arguments); }`); } catch(e) {} }
+$('gameBtn').onclick = () => openSheepTime(); $('courseBtn').onclick = () => openCourse(); $('tripBtn').onclick = () => openTrip();
+{ const base = startRace; startRace = function(){ if (tooSick()) return; base(); if (isHard()) for (const r of race.racers) if (!r.ctrl) r.base = Math.min(8.2, r.base + 0.6); }; }
+// 🩺 the vet
+$('card').insertAdjacentHTML('beforeend', '<div id="hardLine" style="font-size:12px;margin-top:2px"></div>');
+function renderHardBadge(){ const el = $('hardLine'); if (!el) return; el.innerHTML = !isHard() ? '' : pet.sick ? '🤒 Sick! <button id="vetBtn" style="padding:2px 8px;font-size:12px;pointer-events:auto">🩺 Vet (25 🪙)</button>' : '🔥 Hard mode';
+  const b = $('vetBtn'); if (b) b.onclick = goVet; }
+function goVet(){
+  if (!pet.sick) return; if ((pet.coins || 0) < 25){ talk("We don't have 25 coins for the vet… 😟 Maybe a long sleep will help."); return; }
+  window.__noTax = true; pet.coins -= 25; window.__noTax = false; pet.sick = false; pet.happy = clamp(pet.happy + 15); pet.energy = clamp(pet.energy + 20);
+  const h = segs[0]; for (let k = 0; k < 8; k++) floats.push({x: h.x + (Math.random() - .5)*70, y: h.y - 20, text: pick(['💊', '🩺', '💖', '✨']), size: 18, life: 1.2});
+  talk('The vet made me all better! 🩺 Thank you! 💖'); renderHardBadge(); savePet();
+}
+// a full night's sleep can also make a sick dragon better (sometimes)
+{ const base = wake; wake = function(){ const was = pet.sick; base(); if (isHard() && was && pet.energy >= 95 && Math.random() < 0.5){ pet.sick = false; talk('I feel better after that long sleep! 😊'); renderHardBadge(); savePet(); } }; }
+// tricks take longer to learn
+{ const base = judge; judge = function(yes){ const tr = train.state === 'judge' ? TRICK_OF(train.sel) : null, T = tricksOf(), before = tr ? (T[tr.id] || 0) : 0; base(yes);
+    if (isHard() && tr){ const after = T[tr.id] || 0; if (after > before && after < 100) T[tr.id] = Math.round(before + (after - before)*0.55); } }; }
+// the sheep are faster and you need more of them
+{ const base = spawnSheep; spawnSheep = function(edge){ base(edge); if (isHard()){ const sh = game.sheep[game.sheep.length - 1]; if (sh){ sh.vx *= 1.6; sh.vy *= 1.6; } } }; }
+{ const base = goalFor; goalFor = function(lv, mins){ const g = base(lv, mins); return isHard() ? Math.round(g*1.3) : g; }; }
+// obstacle course: faster and the rivals fly better
+{ const base = startCourse; startCourse = function(){ if (isHard()){ const C = COURSES[course.level]; if (!C.hardDone){ C.hardDone = true; C.normalSpeed = C.speed; } C.speed = C.normalSpeed*1.15; } else { const C = COURSES[course.level]; if (C.normalSpeed) C.speed = C.normalSpeed; }
+    base(); if (isHard()) for (const rv of course.rivals || []){ rv.miss = Math.max(0.03, rv.miss - 0.06); rv.pace += 0.03; } }; }
+// coming home from vacation doesn't count as "earning" coins
+{ const base = finishVacation; finishVacation = function(){ window.__noTax = true; try { base(); } finally { window.__noTax = false; coinWatch.last = pet.coins || 0; } }; }
+// 🎚️ choose the difficulty in the players box (each player has their own)
+$('seasonBtn').parentElement.insertAdjacentHTML('beforebegin', `<div id="diffTitle" style="font-weight:700;margin-top:6px;text-align:center">🎚️ How hard is the game?</div>
+  <div class="row2" id="diffRow"><button data-diff="normal">😊 Normal</button><button data-diff="hard">🔥 Hard (ages 10+)</button></div>
+  <div class="hint" id="diffHint" style="text-align:center;font-size:12px"></div>`);
+function renderDiff(){ for (const b of $('diffRow').querySelectorAll('[data-diff]')) b.classList.toggle('primary', (pet.difficulty || 'normal') === b.dataset.diff);
+  $('diffHint').textContent = isHard() ? '🔥 Hard: needs drop twice as fast, dragons can get sick 🤒, things cost more, rewards are smaller, and games are tougher. Only for this player.' : '😊 Normal: relaxed and cozy. Each player can pick their own.'; }
+$('diffRow').addEventListener('click', e => { const b = e.target.closest('[data-diff]'); if (!b) return; pet.difficulty = b.dataset.diff; if (!isHard()) pet.sick = false; applyPrices(); renderDiff(); renderHardBadge(); savePet();
+  talk(isHard() ? "🔥 Hard mode! I'll need extra good care. Let's do this! 💪" : '😊 Normal mode. Nice and cozy!'); });
+{ const base = openProfiles; openProfiles = function(){ base(); renderDiff(); }; }
+renderDiff(); renderHardBadge();
+// ---------- 🌏 more vacation places + adventures: snorkeling, shark dives, safaris ----------
+var CITY_DRAW = {paris: cParis, venice: cVenice, kyoto: cKyoto, santorini: cSantorini, rio: cRio, capetown: cCape, sydney: cSydney, edinburgh: cEdin};
+CITIES.push(
+  {id: 'reef', name: 'Great Barrier Reef', country: 'Australia', flag: '🇦🇺', lon: 146, lat: -16.9, food: ['🥭', 'mangoes'], souv: ['🐠', 'a clownfish plushie'],
+   fact: 'The Great Barrier Reef is the biggest coral reef in the world, so big you can see it from space!', sky: ['#4cc3f2', '#d6f6ff']},
+  {id: 'hawaii', name: 'Hawaii', country: 'USA', flag: '🌺', lon: -155.5, lat: 19.6, food: ['🍍', 'pineapple'], souv: ['🌺', 'a flower lei'],
+   fact: 'The Hawaiian islands were made by volcanoes, and Kīlauea is one of the most active volcanoes in the world!', sky: ['#3fb0e8', '#ffe1b8']},
+  {id: 'kenya', name: 'Maasai Mara', country: 'Kenya', flag: '🇰🇪', lon: 35.1, lat: -1.5, food: ['🫓', 'chapati bread'], souv: ['🦁', 'a toy lion'],
+   fact: 'Every year more than a million wildebeest travel across the Maasai Mara. It is called the Great Migration!', sky: ['#f6b26b', '#ffe9b8']},
+  {id: 'egypt', name: 'Giza', country: 'Egypt', flag: '🇪🇬', lon: 31.1, lat: 29.98, food: ['🧆', 'falafel'], souv: ['🐫', 'a toy camel'],
+   fact: 'The Great Pyramid is about 4,500 years old, and it was the tallest building in the world for more than 3,800 years!', sky: ['#7ec8f2', '#fbe7bf']},
+  {id: 'alps', name: 'Swiss Alps', country: 'Switzerland', flag: '🇨🇭', lon: 7.75, lat: 46.0, food: ['🫕', 'cheese fondue'], souv: ['🔔', 'a cow bell'],
+   fact: 'The Matterhorn mountain is about 14,692 feet tall, and the town below it has no regular gas cars!', sky: ['#6fb7ec', '#e4f3ff']},
+  {id: 'iceland', name: 'Iceland', country: 'Iceland', flag: '🇮🇸', lon: -19, lat: 64.9, food: ['🐟', 'fresh fish'], souv: ['🧣', 'a wool scarf'],
+   fact: 'In Iceland you can see the northern lights. They happen when tiny bits from the sun hit the air high above the Earth!', sky: ['#8fb6d6', '#e8f0f6']}
+);
+Object.assign(CLIMATE, {reef: {w: '☀️ Hot and sunny, with a beach', sunny: 1, beach: 1}, hawaii: {w: '☀️ Warm and sunny, with a beach', sunny: 1, beach: 1, rain: 0.2},
+  kenya: {w: '☀️ Hot and sunny', sunny: 1}, egypt: {w: '☀️ Very hot and sunny', sunny: 1}, alps: {w: '❄️ Cold and snowy', cold: 1}, iceland: {w: '🧥 Cold and windy', cold: 1, rain: 0.4}});
+Object.assign(MENUS, {reef: [['🥭', 'Mango smoothie', 4], ['🍤', 'Grilled prawns', 7], ['🐟', 'Fish tacos', 6]], hawaii: [['🍍', 'Pineapple', 4], ['🍚', 'Poke bowl', 7], ['🍧', 'Shave ice', 4]],
+  kenya: [['🫓', 'Chapati', 4], ['🍖', 'Nyama choma (grilled meat)', 8], ['🥭', 'Fresh mango', 4]], egypt: [['🧆', 'Falafel', 5], ['🫘', 'Ful medames (beans)', 5], ['🍯', 'Honey pastry', 4]],
+  alps: [['🫕', 'Cheese fondue', 8], ['🍫', 'Swiss chocolate', 4], ['🥔', 'Rösti (crispy potatoes)', 6]], iceland: [['🐟', 'Fish stew', 7], ['🥛', 'Skyr yogurt', 4], ['🍞', 'Rye bread', 4]]});
+for (const k in MENUS) for (const d of MENUS[k]) if (d[3] === undefined) d[3] = d[2];
+Object.assign(TOURS, {
+  reef: [['🛥️ The reef boat', 0.3, 0.75, 'Boats take people out to the reef every day, far from the beach!'], ['🪸 The coral', 0.6, 0.85, 'Coral looks like rocks or plants, but it is really made of tiny animals!'], ['🐢 The sea turtles', 0.8, 0.7, 'Six of the seven kinds of sea turtles in the world live on the Great Barrier Reef!']],
+  hawaii: [['🌋 The volcano', 0.7, 0.4, 'Kīlauea volcano has been erupting on and off for a very long time, making brand-new land!'], ['🏄 The surf', 0.4, 0.8, 'Surfing has been part of Hawaiian life for hundreds of years!'], ['🌴 The palm beach', 0.15, 0.7, 'Some Hawaiian beaches have black sand made from volcano rock!']],
+  kenya: [['🌳 The acacia trees', 0.25, 0.55, 'Giraffes love to eat acacia leaves, even though the trees have long thorns!'], ['🦒 The grasslands', 0.6, 0.7, 'The Maasai Mara is a huge grassland called a savanna!'], ['🌅 The sunset', 0.8, 0.35, 'African sunsets are famous for their bright orange and pink skies!']],
+  egypt: [['🔺 The Great Pyramid', 0.55, 0.4, 'The Great Pyramid was built with more than two million stone blocks!'], ['🦁 The Sphinx', 0.22, 0.65, 'The Sphinx has the body of a lion and the head of a person!'], ['🐪 The camels', 0.8, 0.8, 'Camels can go for days without drinking water in the hot desert!']],
+  alps: [['🏔️ The Matterhorn', 0.55, 0.35, 'The Matterhorn has a pointy shape like a giant shark fin!'], ['🏡 The chalets', 0.25, 0.7, 'Swiss chalets are wooden houses with big roofs to hold lots of snow!'], ['🐄 The cows', 0.8, 0.8, 'Swiss cows often wear big bells so farmers can find them in the mountains!']],
+  iceland: [['🌊 The waterfall', 0.3, 0.5, 'Iceland has more than 10,000 waterfalls!'], ['♨️ The hot springs', 0.65, 0.8, 'The hot springs are warmed up by volcanoes under the ground!'], ['🏖️ The black beach', 0.85, 0.85, 'Some Icelandic beaches have black sand made from volcano rock!']]
+});
+// ---- the new places ----
+function acacia(x, y, s){ ctx.strokeStyle = '#5b3a1e'; ctx.lineWidth = 6*s; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 60*s); ctx.lineTo(x - 30*s, y - 90*s); ctx.moveTo(x, y - 60*s); ctx.lineTo(x + 28*s, y - 92*s); ctx.stroke(); ctx.fillStyle = '#4e7a2e'; ctx.beginPath(); ctx.ellipse(x, y - 98*s, 80*s, 16*s, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#5d8f36'; ctx.beginPath(); ctx.ellipse(x + 8*s, y - 104*s, 60*s, 10*s, 0, 0, 7); ctx.fill(); }
+CITY_DRAW.reef = (G, s, day) => {
+  water(G*0.45, G + 20, day ? '#2bb3e0' : '#164b6e', day ? '#1d8fc7' : '#0e3352');
+  ctx.fillStyle = day ? 'rgba(120,220,200,.55)' : 'rgba(40,90,90,.5)'; for (let k = 0; k < 6; k++){ ctx.beginPath(); ctx.ellipse(W*(0.15 + k*0.15), G*0.62 + (k % 2)*16, 90, 10, 0, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#f3e0ae'; ctx.fillRect(0, G + 10, W, H - G - 10); palm(W*0.08, G + 70, 120); palm(W*0.92, G + 76, 110);
+  const bx = ((t*14) % (W + 300)) - 150, by = G*0.58; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(bx - 60, by); ctx.lineTo(bx + 70, by); ctx.lineTo(bx + 54, by + 18); ctx.lineTo(bx - 50, by + 18); ctx.fill(); ctx.fillStyle = '#1d4e89'; ctx.fillRect(bx - 30, by - 22, 60, 22); ctx.fillStyle = '#bde0fe'; ctx.fillRect(bx - 24, by - 16, 48, 10);
+  ctx.fillStyle = '#7a5230'; ctx.fillRect(W*0.6, G - 4, W*0.4, 10); for (let x = W*0.62; x < W; x += 40) ctx.fillRect(x, G, 6, 30);
+};
+CITY_DRAW.hawaii = (G, s, day) => {
+  ctx.fillStyle = day ? '#5b5048' : '#2c2622'; ctx.beginPath(); ctx.moveTo(W*0.4, G); ctx.quadraticCurveTo(W*0.62, G - 300*s, W*0.72, G - 300*s); ctx.quadraticCurveTo(W*0.84, G - 290*s, W + 40, G); ctx.fill();
+  const sm = 0.4 + 0.2*Math.sin(t); for (let k = 0; k < 5; k++){ ctx.fillStyle = `rgba(200,200,205,${sm - k*0.06})`; ctx.beginPath(); ctx.arc(W*0.72 + Math.sin(t*0.5 + k)*10 + k*12, G - 320*s - k*28, 26 + k*8, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#ff6b35'; ctx.beginPath(); ctx.moveTo(W*0.7, G - 296*s); ctx.quadraticCurveTo(W*0.74, G - 200*s, W*0.8, G - 40*s); ctx.lineTo(W*0.82, G - 40*s); ctx.quadraticCurveTo(W*0.76, G - 200*s, W*0.73, G - 296*s); ctx.fill();
+  ctx.fillStyle = day ? '#2e7d32' : '#1b4020'; ctx.beginPath(); ctx.moveTo(-20, G); ctx.quadraticCurveTo(W*0.15, G - 150*s, W*0.42, G); ctx.fill();
+  water(G - 10, G + 40, '#1fa2d6', '#5cd0ef'); for (let k = 0; k < 3; k++){ const x = ((k*W*0.4 + t*50) % (W + 200)) - 100; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, G + 18, 26, Math.PI, Math.PI*1.9); ctx.stroke(); }
+  ctx.fillStyle = '#2b2b2b'; ctx.fillRect(0, G + 36, W*0.4, H); ctx.fillStyle = '#f3dfae'; ctx.fillRect(W*0.4, G + 36, W, H); palm(W*0.1, G + 80, 130); palm(W*0.55, G + 86, 110);
+  const sx = ((t*40) % (W + 100)) - 50; ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.ellipse(sx, G + 10, 26, 5, -0.1, 0, 7); ctx.fill(); ctx.fillStyle = '#6d4c41'; ctx.beginPath(); ctx.arc(sx, G - 12, 6, 0, 7); ctx.fill(); ctx.fillRect(sx - 3, G - 6, 6, 14);
+};
+CITY_DRAW.kenya = (G, s, day) => {
+  ctx.fillStyle = day ? 'rgba(255,140,60,.25)' : 'rgba(0,0,0,0)'; ctx.fillRect(0, G - 200, W, 200);
+  ctx.fillStyle = day ? '#c9a15a' : '#4a3b22'; ctx.beginPath(); ctx.moveTo(0, G - 60); for (let x = 0; x <= W; x += 40) ctx.lineTo(x, G - 60 - Math.sin(x*0.01)*14); ctx.lineTo(W, G); ctx.lineTo(0, G); ctx.fill();
+  ctx.fillStyle = day ? '#d8b25e' : '#4f3f22'; ctx.fillRect(0, G, W, H - G); ctx.strokeStyle = day ? 'rgba(150,110,40,.5)' : 'rgba(0,0,0,.3)'; ctx.lineWidth = 1; for (let k = 0; k < 140; k++){ const x = (k*47) % W, y = G + 6 + (k*29) % Math.max(10, H - G - 10); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 2, y - 8); ctx.stroke(); }
+  acacia(W*0.2, G + 10, s); acacia(W*0.68, G - 30, s*0.7); acacia(W*0.9, G + 20, s*1.1);
+  ctx.font = `${44*s}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText('🦒', W*0.45 + Math.sin(t*0.2)*30, G + 4); ctx.font = `${32*s}px system-ui`; ctx.fillText('🦓', W*0.58 + Math.sin(t*0.3 + 1)*40, G + 30); ctx.fillText('🐘', W*0.8, G - 10);
+};
+CITY_DRAW.egypt = (G, s, day) => {
+  const sand = day ? '#e6c27a' : '#5e4a2a';
+  for (const [x, h, c] of [[0.35, 300, day ? '#d9b36a' : '#55432a'], [0.62, 360, day ? '#e2bc72' : '#5c482c'], [0.85, 220, day ? '#d4ad62' : '#4f3f26']]){ const px = W*x, ph = h*s; ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(px - ph*0.9, G); ctx.lineTo(px, G - ph); ctx.lineTo(px + ph*0.9, G); ctx.fill(); ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.moveTo(px, G - ph); ctx.lineTo(px + ph*0.9, G); ctx.lineTo(px + ph*0.2, G); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,90,40,.3)'; ctx.lineWidth = 1; for (let y = G - ph + 12; y < G; y += 12){ const w = (G - y)/ph*ph*0.9; ctx.beginPath(); ctx.moveTo(px - w, y); ctx.lineTo(px + w, y); ctx.stroke(); } }
+  ctx.fillStyle = sand; ctx.fillRect(0, G, W, H - G);
+  const sx = W*0.14, sy = G + 30; ctx.fillStyle = day ? '#c9a05c' : '#4d3c22'; rr(sx - 70*s, sy - 40*s, 140*s, 40*s, 8); ctx.fill(); rr(sx + 30*s, sy - 90*s, 44*s, 60*s, 10); ctx.fill(); ctx.fillStyle = day ? '#3a5f8f' : '#22364f'; ctx.beginPath(); ctx.moveTo(sx + 26*s, sy - 92*s); ctx.lineTo(sx + 78*s, sy - 92*s); ctx.lineTo(sx + 84*s, sy - 50*s); ctx.lineTo(sx + 20*s, sy - 50*s); ctx.fill(); ctx.fillStyle = day ? '#c9a05c' : '#4d3c22'; ctx.beginPath(); ctx.arc(sx + 52*s, sy - 74*s, 16*s, 0, 7); ctx.fill();
+  ctx.font = `${40*s}px system-ui`; ctx.textAlign = 'center'; ctx.fillText('🐪', ((t*20) % (W + 120)) - 60, G + 60);
+};
+CITY_DRAW.alps = (G, s, day) => {
+  ctx.fillStyle = day ? '#9fb3c8' : '#3c4a5c'; ctx.beginPath(); ctx.moveTo(0, G); ctx.lineTo(W*0.2, G - 180*s); ctx.lineTo(W*0.35, G - 120*s); ctx.lineTo(W*0.45, G - 150*s); ctx.lineTo(W*0.7, G - 100*s); ctx.lineTo(W, G - 200*s); ctx.lineTo(W, G); ctx.fill();
+  const mx = W*0.55, mh = Math.min(G*0.85, 420*s); ctx.fillStyle = day ? '#7d8a99' : '#2e3742'; ctx.beginPath(); ctx.moveTo(mx - 220*s, G); ctx.lineTo(mx - 20*s, G - mh); ctx.lineTo(mx + 10*s, G - mh + 20*s); ctx.lineTo(mx + 230*s, G); ctx.fill();
+  ctx.fillStyle = '#fbfdff'; ctx.beginPath(); ctx.moveTo(mx - 80*s, G - mh*0.6); ctx.lineTo(mx - 20*s, G - mh); ctx.lineTo(mx + 10*s, G - mh + 20*s); ctx.lineTo(mx + 70*s, G - mh*0.6); ctx.lineTo(mx + 30*s, G - mh*0.66); ctx.lineTo(mx, G - mh*0.56); ctx.lineTo(mx - 40*s, G - mh*0.65); ctx.fill();
+  ctx.fillStyle = '#f4f8fb'; ctx.fillRect(0, G, W, H - G);
+  for (let k = 0; k < 5; k++){ const x = W*(0.08 + k*0.2), y = G + 30 + (k % 2)*20; ctx.fillStyle = '#8b5a2b'; ctx.fillRect(x, y - 40*s, 60*s, 40*s); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(x - 8*s, y - 38*s); ctx.lineTo(x + 30*s, y - 66*s); ctx.lineTo(x + 68*s, y - 38*s); ctx.fill(); ctx.fillStyle = day ? '#d0e4f2' : '#ffd77a'; ctx.fillRect(x + 10*s, y - 30*s, 12*s, 12*s); ctx.fillRect(x + 38*s, y - 30*s, 12*s, 12*s); }
+  for (let k = 0; k < 7; k++){ const x = W*(0.03 + k*0.15), y = G + 4; ctx.fillStyle = '#2f5d3a'; ctx.beginPath(); ctx.moveTo(x, y - 60); ctx.lineTo(x - 18, y); ctx.lineTo(x + 18, y); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(x, y - 60); ctx.lineTo(x - 7, y - 38); ctx.lineTo(x + 7, y - 38); ctx.fill(); }
+  ctx.font = `${32*s}px system-ui`; ctx.textAlign = 'center'; ctx.fillText('🐄', W*0.86, G + 90);
+};
+CITY_DRAW.iceland = (G, s, day) => {
+  if (!day){ for (let b = 0; b < 3; b++){ ctx.strokeStyle = ['rgba(80,255,160,.35)', 'rgba(120,200,255,.25)', 'rgba(200,120,255,.2)'][b]; ctx.lineWidth = 26 - b*6; ctx.beginPath(); for (let x = -20; x <= W + 20; x += 20) ctx.lineTo(x, 90 + b*24 + Math.sin(x*0.008 + t*0.6 + b)*30 + Math.sin(x*0.02 + t)*10); ctx.stroke(); } }
+  ctx.fillStyle = day ? '#5d6b5a' : '#1f2620'; ctx.beginPath(); ctx.moveTo(0, G); ctx.lineTo(0, G - 220*s); ctx.lineTo(W*0.35, G - 230*s); ctx.lineTo(W*0.42, G - 120*s); ctx.lineTo(W, G - 110*s); ctx.lineTo(W, G); ctx.fill();
+  const wx = W*0.3; const fg = ctx.createLinearGradient(0, G - 230*s, 0, G); fg.addColorStop(0, '#e9f6ff'); fg.addColorStop(1, '#bfe3f7'); ctx.fillStyle = fg; ctx.fillRect(wx - 26*s, G - 230*s, 52*s, 230*s);
+  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; for (let k = 0; k < 6; k++){ const x = wx - 22*s + k*9*s, o = (t*120 + k*40) % (230*s); ctx.beginPath(); ctx.moveTo(x, G - 230*s + o); ctx.lineTo(x, G - 230*s + o + 30); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(wx, G, 70*s, 16*s, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = day ? '#6f8f5a' : '#26331f'; ctx.fillRect(0, G, W*0.6, H - G); ctx.fillStyle = '#202024'; ctx.fillRect(W*0.6, G, W, H - G);
+  const hx = W*0.65, hy = G + 50; ctx.fillStyle = '#7fd3e6'; ctx.beginPath(); ctx.ellipse(hx, hy, 80*s, 18*s, 0, 0, 7); ctx.fill(); for (let k = 0; k < 6; k++){ ctx.fillStyle = `rgba(255,255,255,${0.25 - k*0.03})`; ctx.beginPath(); ctx.arc(hx - 40*s + k*16*s, hy - 20 - ((t*20 + k*14) % 60), 12, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#fff'; for (let k = 0; k < 4; k++){ const x = W*(0.85 + k*0.03) + Math.sin(t + k)*4, y = G + 60 + (k % 2)*10; ctx.beginPath(); ctx.moveTo(x - 30, y); ctx.lineTo(x + 30, y); ctx.lineTo(x + 20, y + 10); ctx.lineTo(x - 20, y + 10); ctx.fill(); }
+};
+// ---- 🤿 adventures: swim around and spot amazing animals ----
+const ADVENTURES = {
+  snorkel: {name: '🤿 Snorkeling', cost: 10, where: ['reef', 'hawaii', 'santorini'], kind: 'sea', needs: 'swim',
+    list: [['clown', '🐠 Clownfish', 'Clownfish live inside sea anemones, which protect them!'], ['tang', '🐟 Blue tang', 'Blue tangs are bright blue fish that belong to the surgeonfish family!'], ['parrot', '🐡 Parrotfish', 'Parrotfish crunch on coral and turn it into soft white sand!'],
+      ['turtle', '🐢 Sea turtle', 'Sea turtles can rest underwater for hours without coming up for air!'], ['manta', '🌊 Manta ray', 'Manta rays can be over 20 feet wide from wing to wing!'], ['octo', '🐙 Octopus', 'An octopus has three hearts and can change color!'], ['horse', '🐴 Seahorse', 'Seahorse dads carry the babies until they hatch!'], ['star', '⭐ Sea star', 'Sea stars can grow back an arm if they lose one!']]},
+  sharks: {name: '🦈 Shark dive at the aquarium', cost: 15, where: ['sydney', 'capetown', 'reef'], kind: 'tank',
+    list: [['tiger', '🦈 Sand tiger shark', 'Sand tiger sharks have lots of pointy teeth, but they are usually calm!'], ['hammer', '🔨 Hammerhead shark', 'Hammerhead sharks use their wide heads to find food hiding in the sand!'], ['wobbe', '🦈 Wobbegong shark', 'Wobbegong sharks look like a fuzzy carpet lying on the sea floor!'],
+      ['ray', '🌊 Stingray', 'Stingrays are cousins of sharks, and both have soft skeletons made of cartilage!'], ['turtle', '🐢 Sea turtle', 'Sea turtles have been swimming in the ocean since the time of the dinosaurs!'], ['school', '🐟 School of fish', 'Fish swim together in a school to stay safe from hungry sharks!']]},
+  safari: {name: '🚙 Safari drive', cost: 15, where: ['kenya'], kind: 'land',
+    list: [['lion', '🦁 Lion', "A lion's roar can be heard about 5 miles away!"], ['ele', '🐘 Elephant', 'Elephants are the biggest animals that live on land!'], ['gir', '🦒 Giraffe', 'Giraffes can grow to about 18 feet tall!'], ['zeb', '🦓 Zebra', 'Every zebra has its very own stripe pattern, like a fingerprint!'],
+      ['rhino', '🦏 Rhino', 'A rhino horn is made of the same stuff as your fingernails!'], ['hippo', '🦛 Hippo', 'Hippos cannot really swim. They walk and bounce along the river bottom!'], ['chee', '🐆 Cheetah', 'Cheetahs are the fastest land animals, up to about 70 miles per hour!']]}
+};
+function advHere(){ return Object.entries(ADVENTURES).filter(([k, a]) => trip.city && a.where.includes(trip.city.id)); }
+function startAdv(key){
+  const A = ADVENTURES[key], v = V(), cost = Math.round(A.cost*(isHard() ? 1.5 : 1));
+  if (v.wallet < cost){ talk(`That costs ${cost} coins, and we only have ${v.wallet}! 🪙`); return; }
+  if (A.needs === 'swim' && !v.packed.swim){ if (v.wallet < cost + 5){ talk('I forgot my swimsuit, and I need 5 more coins to rent one! 🩱'); return; } v.wallet -= 5; talk('I forgot my swimsuit, so I rented one! 🩱'); }
+  v.wallet -= cost; trip.place = 'adv'; trip.adv = {key, spotted: {}, t0: t, mobs: []};
+  const ex = trip.adv;
+  A.list.forEach(([id], i) => { const n = id === 'school' ? 1 : 1; for (let k = 0; k < n; k++) ex.mobs.push({id, x: Math.random()*W, y: H*(0.25 + Math.random()*0.45), vx: (Math.random() < .5 ? -1 : 1)*(0.4 + Math.random()*0.8), ph: Math.random()*6, sc: 0.8 + Math.random()*0.5}); });
+  for (let k = 0; k < 18; k++) ex.mobs.push({id: 'tiny', x: Math.random()*W, y: H*(0.2 + Math.random()*0.5), vx: (Math.random() < .5 ? -1 : 1)*(0.6 + Math.random()), ph: Math.random()*6, sc: 0.5, c: pick(['#ffd166', '#ef476f', '#06d6a0', '#118ab2', '#ff9f1c'])});
+  for (let i = 0; i < segs.length; i++){ segs[i].x = W*0.15 - i*6; segs[i].y = H*0.4; segs[i].a = 0; } trip.goal = {x: W*0.4, y: H*0.4};
+  talk(A.kind === 'land' ? 'Hop in the safari truck! Tap the animals to take their picture! 📸' : A.kind === 'tank' ? 'Diving into the big shark tank! Tap the animals to learn about them! 🦈' : 'Splash! Tap the sea animals to spot them! 🤿');
+  renderTrip(); savePet();
+}
+function endAdv(){ const A = ADVENTURES[trip.adv.key], n = Object.keys(trip.adv.spotted).length; pet.happy = clamp(pet.happy + 6 + n*2); const all = n >= A.list.length;
+  pet.advLog = pet.advLog || {}; pet.advLog[trip.adv.key] = Math.max(pet.advLog[trip.adv.key] || 0, n);
+  if (all){ pet.coins = (pet.coins || 0) + 10; burstConfetti(W/2, H*0.35, 80); talk(`We spotted ALL ${A.list.length} animals! That was AMAZING! 🏆 +10 🪙`); } else talk(`We spotted ${n} of ${A.list.length} animals! What an adventure! 🤩`);
+  trip.place = 'out'; trip.adv = null; renderTrip(); savePet(); }
+function drawMob(m, kind){
+  const x = m.x, y = m.y + Math.sin(t*1.5 + m.ph)*8, d = m.vx >= 0 ? 1 : -1, s = m.sc, sp = trip.adv && trip.adv.spotted[m.id];
+  ctx.save(); ctx.translate(x, y); ctx.scale(d, 1);
+  const fish = (L, H2, body, belly, stripe) => { ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(0, 0, L, H2, 0, 0, 7); ctx.fill(); ctx.beginPath(); ctx.moveTo(-L*0.8, 0); ctx.lineTo(-L*1.4, -H2*0.9 - Math.sin(t*8 + m.ph)*3); ctx.lineTo(-L*1.4, H2*0.9 + Math.sin(t*8 + m.ph)*3); ctx.closePath(); ctx.fill();
+    if (belly){ ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(L*0.1, H2*0.4, L*0.7, H2*0.4, 0, 0, 7); ctx.fill(); } if (stripe){ ctx.fillStyle = stripe; for (const sx of [0.45, 0, -0.45]){ ctx.fillRect(L*sx - 3, -H2*0.9, 6, H2*1.8); } } ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(L*0.62, -H2*0.2, 2.2, 0, 7); ctx.fill(); };
+  if (m.id === 'tiny') fish(9, 5, m.c);
+  else if (m.id === 'clown') fish(22*s, 12*s, '#ff7b25', null, '#fff');
+  else if (m.id === 'tang') fish(26*s, 15*s, '#1f5fff', null, null), ctx.fillStyle = '#ffd400', ctx.fillRect(-36*s, -4, 10*s, 8);
+  else if (m.id === 'parrot') fish(30*s, 15*s, '#2ec4b6', '#ff8fab', null);
+  else if (m.id === 'school'){ for (let k = 0; k < 14; k++){ ctx.save(); ctx.translate((k % 5)*18 - 36, Math.floor(k/5)*14 - 14 + Math.sin(t*3 + k)*3); fish(9, 4, '#c0d6df'); ctx.restore(); } }
+  else if (m.id === 'turtle'){ ctx.fillStyle = '#7a9a3a'; ctx.beginPath(); ctx.ellipse(0, 0, 34*s, 24*s, 0, 0, 7); ctx.fill(); ctx.strokeStyle = '#4f6b22'; ctx.lineWidth = 2; for (let k = -1; k <= 1; k++){ ctx.beginPath(); ctx.ellipse(k*12*s, 0, 9*s, 14*s, 0, 0, 7); ctx.stroke(); }
+    ctx.fillStyle = '#a3b86c'; ctx.beginPath(); ctx.ellipse(40*s, -2, 11*s, 8*s, 0, 0, 7); ctx.fill(); const f = Math.sin(t*2 + m.ph)*0.5; for (const [fx, fy, a] of [[14, -22, -0.8 + f], [14, 22, 0.8 - f], [-22, -18, -2.4], [-22, 18, 2.4]]){ ctx.save(); ctx.translate(fx*s, fy*s); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(10*s, 0, 14*s, 5*s, 0, 0, 7); ctx.fill(); ctx.restore(); } }
+  else if (m.id === 'manta' || m.id === 'ray'){ const big = m.id === 'manta' ? 1.6 : 1, f = Math.sin(t*2 + m.ph)*10*s*big; ctx.fillStyle = m.id === 'manta' ? '#2b2d42' : '#8d7b68'; ctx.beginPath(); ctx.moveTo(30*s*big, 0); ctx.quadraticCurveTo(0, -40*s*big - f, -20*s*big, -50*s*big - f); ctx.quadraticCurveTo(-10*s*big, 0, -20*s*big, 50*s*big + f); ctx.quadraticCurveTo(0, 40*s*big + f, 30*s*big, 0); ctx.fill(); ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-14*s*big, 0); ctx.lineTo(-60*s*big, Math.sin(t*3)*6); ctx.stroke(); }
+  else if (['tiger', 'hammer', 'wobbe'].includes(m.id)){ const L = (m.id === 'wobbe' ? 50 : 70)*s, c = m.id === 'wobbe' ? '#8a6d3b' : '#7d8b99';
+    ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(L, 0); ctx.quadraticCurveTo(L*0.4, -18*s, -L*0.6, -8*s); ctx.lineTo(-L, -26*s - Math.sin(t*4 + m.ph)*6); ctx.lineTo(-L*0.85, 0); ctx.lineTo(-L, 18*s + Math.sin(t*4 + m.ph)*6); ctx.lineTo(-L*0.6, 8*s); ctx.quadraticCurveTo(L*0.4, 16*s, L, 0); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(L*0.1, -12*s); ctx.lineTo(-L*0.1, -36*s); ctx.lineTo(-L*0.25, -10*s); ctx.fill(); ctx.fillStyle = '#e8eef3'; ctx.beginPath(); ctx.ellipse(L*0.2, 6*s, L*0.55, 6*s, 0, 0, 7); ctx.fill();
+    if (m.id === 'hammer'){ ctx.fillStyle = c; ctx.fillRect(L*0.85, -16*s, 8*s, 32*s); } if (m.id === 'wobbe'){ ctx.fillStyle = 'rgba(60,40,20,.5)'; for (let k = 0; k < 8; k++){ ctx.beginPath(); ctx.arc(-L*0.6 + k*L*0.18, (k % 2 ? -4 : 4)*s, 4*s, 0, 7); ctx.fill(); } }
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(L*0.7, -4*s, 2.5, 0, 7); ctx.fill(); }
+  else if (m.id === 'horse'){ // a little yellow seahorse
+    ctx.fillStyle = '#f4b400'; ctx.beginPath(); ctx.ellipse(0, -10*s, 9*s, 11*s, 0.3, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(2*s, 6*s, 8*s, 10*s, -0.2, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#f4b400'; ctx.lineWidth = 6*s; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 14*s); ctx.quadraticCurveTo(-4*s, 30*s, 6*s, 30*s); ctx.quadraticCurveTo(12*s, 28*s, 8*s, 22*s); ctx.stroke(); ctx.lineCap = 'butt';
+    ctx.fillStyle = '#f4b400'; ctx.fillRect(6*s, -16*s, 14*s, 5*s); ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(3*s, -13*s, 1.8, 0, 7); ctx.fill(); ctx.fillStyle = '#ffd966'; ctx.beginPath(); ctx.moveTo(-8*s, -6*s); ctx.lineTo(-16*s, 0); ctx.lineTo(-8*s, 4*s); ctx.fill(); }
+  else { ctx.scale(d, 1); ctx.font = `${({octo: 40, star: 30, lion: 52, ele: 64, gir: 72, zeb: 50, rhino: 56, hippo: 54, chee: 48}[m.id] || 40)*s}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText({octo: '🐙', star: '⭐', lion: '🦁', ele: '🐘', gir: '🦒', zeb: '🦓', rhino: '🦏', hippo: '🦛', chee: '🐆'}[m.id] || '🐟', 0, 0); }
+  ctx.restore();
+  if (sp && m.id !== 'tiny'){ ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.fillStyle = '#fff'; ctx.strokeText('✅', x, y - 34); ctx.fillText('✅', x, y - 34); }
+}
+function drawAdv(){
+  const A = ADVENTURES[trip.adv.key];
+  if (A.kind === 'land'){
+    const G = H*0.6, sky = ctx.createLinearGradient(0, 0, 0, G); sky.addColorStop(0, '#f6a35b'); sky.addColorStop(1, '#ffe2a8'); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ffdd8a'; ctx.beginPath(); ctx.arc(W*0.8, G - 60, 50, 0, 7); ctx.fill(); ctx.fillStyle = '#d8b25e'; ctx.fillRect(0, G, W, H - G);
+    acacia(W*0.1, G + 20, 1); acacia(W*0.55, G - 10, 0.7); acacia(W*0.9, G + 40, 1.2);
+    for (const m of trip.adv.mobs) if (m.id !== 'tiny') drawMob(m, 'land');
+    const jx = W*0.5 + Math.sin(t*0.5)*W*0.25, jy = H - (W < 600 ? 290 : 200); ctx.fillStyle = '#556b2f'; rr(jx - 80, jy - 34, 160, 50, 10); ctx.fill(); ctx.fillStyle = '#3e4f22'; ctx.fillRect(jx - 70, jy - 60, 6, 28); ctx.fillRect(jx + 64, jy - 60, 6, 28); ctx.fillRect(jx - 74, jy - 64, 148, 6);
+    ctx.fillStyle = '#222'; for (const wx of [jx - 50, jx + 50]){ ctx.beginPath(); ctx.arc(wx, jy + 18, 15, 0, 7); ctx.fill(); } ctx.font = '40px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🐉', jx, jy - 44);
+    return;
+  }
+  const deep = A.kind === 'tank', g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, deep ? '#0d5c8c' : '#3cc6e8'); g.addColorStop(1, deep ? '#03263f' : '#0b6fa1'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (let k = 0; k < 7; k++){ ctx.fillStyle = `rgba(255,255,255,${0.05 + 0.03*Math.sin(t + k)})`; ctx.beginPath(); ctx.moveTo(W*(k/7) + Math.sin(t*0.3 + k)*30, 0); ctx.lineTo(W*(k/7) + 60, 0); ctx.lineTo(W*(k/7) - 40 + Math.sin(t*0.3 + k)*30, H*0.8); ctx.lineTo(W*(k/7) - 120, H*0.8); ctx.fill(); }
+  ctx.fillStyle = deep ? '#c2b280' : '#f1d9a0'; ctx.beginPath(); ctx.moveTo(0, H*0.86); for (let x = 0; x <= W; x += 30) ctx.lineTo(x, H*0.84 + Math.sin(x*0.02)*8); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+  if (!deep){ const cols = ['#ff6f91', '#ffc75f', '#c34a36', '#845ec2', '#ff9671', '#00c9a7'];
+    for (let k = 0; k < 16; k++){ const x = (k*W/15), y = H*0.86, c = cols[k % cols.length], h = 40 + (k*37 % 60); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 7;
+      if (k % 3 === 0){ ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h); ctx.moveTo(x, y - h*0.5); ctx.lineTo(x - 18, y - h*0.85); ctx.moveTo(x, y - h*0.6); ctx.lineTo(x + 16, y - h); ctx.stroke(); }
+      else if (k % 3 === 1){ ctx.beginPath(); ctx.arc(x, y - 14, 22, Math.PI, 0); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.lineWidth = 1.5; for (let j = 0; j < 5; j++){ ctx.beginPath(); ctx.arc(x, y - 14, 4 + j*4, Math.PI, 0); ctx.stroke(); } }
+      else { for (let j = 0; j < 7; j++){ const a = -Math.PI/2 + (j - 3)*0.25 + Math.sin(t*2 + j + k)*0.1; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + Math.cos(a)*h*0.4, y + Math.sin(a)*h*0.4, x + Math.cos(a)*h*0.8, y + Math.sin(a)*h*0.8); ctx.stroke(); } } } }
+  else { ctx.fillStyle = 'rgba(80,90,100,.8)'; for (let k = 0; k < 6; k++){ ctx.beginPath(); ctx.ellipse(W*(0.1 + k*0.17), H*0.87, 50, 22, 0, Math.PI, 0); ctx.fill(); } ctx.strokeStyle = 'rgba(200,230,255,.25)'; ctx.lineWidth = 6; ctx.strokeRect(6, 6, W - 12, H - 12); }
+  for (let k = 0; k < 14; k++){ ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.beginPath(); ctx.arc((k*97 + Math.sin(t + k)*10) % W, H - ((t*40 + k*61) % H), 3 + (k % 3), 0, 7); ctx.stroke(); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1; }
+  for (const m of trip.adv.mobs) drawMob(m, 'sea');
+}
+// ---- hook adventures into the trip ----
+const baseRT3 = renderTrip;
+renderTrip = function(){
+  const v = V();
+  if (trip.state === 'city' && trip.place === 'adv' && trip.adv){ const A = ADVENTURES[trip.adv.key], n = Object.keys(trip.adv.spotted).length;
+    $('tripHudTxt').textContent = `${A.name} · spotted ${n}/${A.list.length}`;
+    $('tripBody').innerHTML = `<div class="sg-msg"><small>👆 Tap the animals to spot them! ${A.list.map(([id, nm]) => trip.adv.spotted[id] ? '✅' + nm.split(' ')[0] : '⬜').join(' ')}</small></div><div class="sg-btns"><button class="primary big" data-pl="advEnd">🏁 Finish</button></div>`; return; }
+  baseRT3();
+  if (trip.state === 'city' && trip.city && v && !v.night && !v.done && trip.place === 'out'){
+    const btns = $('tripBody').querySelector('.sg-btns'); if (btns){ const html = advHere().map(([k, A]) => `<button class="big" data-adv="${k}">${A.name} (${Math.round(A.cost*(isHard() ? 1.5 : 1))} 🪙)</button>`).join(''); btns.insertAdjacentHTML('afterbegin', html); } }
+};
+$('tripBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.adv) startAdv(b.dataset.adv); if (b.dataset.pl === 'advEnd') endAdv(); });
+const baseUT3 = updateTrip;
+updateTrip = function(){
+  if (trip.state === 'city' && trip.place === 'adv' && trip.adv){
+    const A = ADVENTURES[trip.adv.key], land = A.kind === 'land';
+    for (const m of trip.adv.mobs){ m.x += m.vx*(land ? 0.6 : 1); if (m.x < -120) m.x = W + 100; if (m.x > W + 120) m.x = -100; if (land) m.y = H*0.6 + 20 + (m.ph*37 % 60); }
+    for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.y -= 0.7; f.life -= 0.02; if (f.life <= 0) floats.splice(i, 1); }
+    if (!land){ const h = segs[0], g = trip.goal, dx = g.x - h.x, dy = g.y - h.y, dd = Math.hypot(dx, dy), sp = Math.min(3, dd*0.05), diff = ((Math.atan2(dy, dx) - h.a + Math.PI*3) % (Math.PI*2)) - Math.PI;
+      if (dd > 3){ h.a += diff*0.1; h.x += Math.cos(h.a)*sp; h.y += Math.sin(h.a)*sp; } roaming = true; side = Math.cos(h.a) >= 0 ? 1 : -1; const L = SEGLEN();
+      for (let i = 1; i < segs.length; i++){ const p = segs[i-1], s = segs[i], a = Math.atan2(p.y - s.y, p.x - s.x); s.a = a; s.x = p.x - Math.cos(a)*L; s.y = p.y - Math.sin(a)*L; }
+      if (Math.random() < 0.06) floats.push({x: h.x + 12, y: h.y - 10, text: '🫧', size: 10, life: 0.8}); }
+    return;
+  }
+  baseUT3();
+};
+const baseDT3 = drawTrip;
+drawTrip = function(){
+  if (trip.state === 'city' && trip.place === 'adv' && trip.adv){
+    drawAdv(); if (ADVENTURES[trip.adv.key].kind !== 'land'){ floorY = H + 300; drawDragon(); const h = segs[0]; ctx.font = '22px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🤿', h.x + (side > 0 ? 6 : -6), h.y - 4); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const f of floats){ ctx.globalAlpha = Math.max(0, f.life); ctx.font = `600 ${f.size}px system-ui`; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3; ctx.strokeText(f.text, f.x, f.y); ctx.fillText(f.text, f.x, f.y); }
+    ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic'; drawConfetti(); if (t < trip.flash){ ctx.fillStyle = `rgba(255,255,255,${(trip.flash - t)/0.35})`; ctx.fillRect(0, 0, W, H); } return;
+  }
+  baseDT3();
+};
+addEventListener('pointerdown', e => {
+  if (mode !== 'trip' || trip.place !== 'adv' || !trip.adv || e.target.closest('#tripPanel, #tripHud, button')) return;
+  const A = ADVENTURES[trip.adv.key]; trip.goal = {x: e.clientX, y: e.clientY};
+  let best = null, bd = 1e9; for (const m of trip.adv.mobs){ if (m.id === 'tiny') continue; const d = Math.hypot(e.clientX - m.x, e.clientY - (m.y + Math.sin(t*1.5 + m.ph)*8)); if (d < bd){ bd = d; best = m; } }
+  if (best && bd < 70){ const info = A.list.find(([id]) => id === best.id); if (!info) return;
+    trip.flash = t + 0.3; try { sfx.pop(); } catch(e2) {}
+    if (!trip.adv.spotted[best.id]){ trip.adv.spotted[best.id] = true; floats.push({x: best.x, y: best.y - 40, text: info[1], size: 18, life: 1.4}); talk(info[2]); renderTrip();
+      if (Object.keys(trip.adv.spotted).length >= A.list.length) setTimeout(() => { if (trip.place === 'adv') endAdv(); }, 2600); }
+    else floats.push({x: best.x, y: best.y - 40, text: '📸', size: 18, life: 1}); }
+});
+// ---------- 📸 real photos (also underwater!) saved in a vacation photo album ----------
+const ALBUM_MAX = 24;
+const albumKey = () => 'dragonAlbum:' + (typeof PLAYER !== 'undefined' && PLAYER ? PLAYER.id : 'me');
+function album(){ try { return JSON.parse(localStorage.getItem(albumKey()) || '[]'); } catch(e) { return []; } }
+function saveAlbum(a){ for (;;){ try { localStorage.setItem(albumKey(), JSON.stringify(a)); return true; } catch(e) { if (a.length <= 1) return false; a.shift(); } } }
+function snapPhoto(caption){
+  try {
+    const w = 480, h = Math.round(w*H/W), c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+    g.drawImage(cv, 0, 0, w, h);
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, h - 26, w, 26); g.fillStyle = '#fff'; g.font = '600 13px system-ui'; g.textBaseline = 'middle'; g.fillText(caption, 8, h - 13);
+    const a = album(); a.push({img: c.toDataURL('image/jpeg', 0.72), cap: caption, at: Date.now()}); while (a.length > ALBUM_MAX) a.shift(); saveAlbum(a);
+    trip.flash = t + 0.35; try { sfx.pop(); } catch(e) {} return true;
+  } catch(e) { return false; }
+}
+function advCaption(){
+  const A = ADVENTURES[trip.adv.key], seen = new Set();
+  for (const m of trip.adv.mobs){ if (m.id === 'tiny' || m.x < 0 || m.x > W) continue; const it = A.list.find(([id]) => id === m.id); if (it) seen.add(it[1].split(' ')[0]); }
+  return `${A.name.replace(/^\S+\s/, '')} · ${trip.city.name} ${[...seen].slice(0, 5).join('')}`;
+}
+function takeAdvPhoto(){
+  const v = V();
+  if (!v.packed.camera && !v.rentCam){ if (v.wallet < 3){ talk('I need a camera! An underwater camera costs 3 coins to rent. 📷'); return; } v.wallet -= 3; v.rentCam = true; talk('I rented an underwater camera! 📷💦'); renderTrip(); }
+  // draw once more without the panel-flash so the picture is clean
+  draw(); const cap = advCaption();
+  if (snapPhoto(cap)){ talk(pick(['Click! 📸 What a great picture!', 'Got it! 📸 That one is going in the album!', 'Say "fish"! 📸🐠'])); pet.happy = clamp(pet.happy + 2); renderTrip(); }
+}
+// city photos go in the album too
+{ const base = cityAction; cityAction = function(a){ const v = V();
+    if (a === 'photo' && trip.city && v && v.packed.camera && trip.place !== 'adv'){ draw(); snapPhoto(`${trip.city.flag} ${trip.city.name} · Day ${v.day}`); }
+    return base(a); }; }
+// the photo album
+document.body.insertAdjacentHTML('beforeend', `<div id="albumBox" class="overlay"><div class="box" style="max-width:760px"><h2>🖼️ Photo album</h2>
+  <div id="albumGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:55vh;overflow:auto"></div>
+  <div id="albumView" style="display:none;text-align:center"><img id="albumImg" style="max-width:100%;max-height:55vh;border-radius:12px"><div id="albumCap" class="hint"></div>
+    <div class="row2"><button id="albumSave">💾 Save to this device</button><button id="albumDel">🗑️ Delete</button><button id="albumBack">◀ All photos</button></div></div>
+  <div class="row2"><button id="albumClose" class="primary">Done</button></div></div></div>`);
+let albumSel = -1;
+function openAlbum(){ albumSel = -1; renderAlbum(); $('albumBox').classList.add('open'); }
+function renderAlbum(){
+  const a = album(); $('albumView').style.display = albumSel >= 0 ? '' : 'none'; $('albumGrid').style.display = albumSel >= 0 ? 'none' : 'grid';
+  if (albumSel >= 0){ const p = a[albumSel]; if (!p){ albumSel = -1; return renderAlbum(); } $('albumImg').src = p.img; $('albumCap').textContent = `${p.cap} · ${new Date(p.at).toLocaleDateString()}`; return; }
+  $('albumGrid').innerHTML = a.length ? a.map((p, i) => `<button data-ph="${i}" style="padding:3px;border-radius:10px;background:#fff"><img src="${p.img}" style="width:100%;border-radius:8px;display:block"><small style="display:block;color:#333;font-size:10px;padding:2px">${esc(p.cap)}</small></button>`).reverse().join('')
+    : '<div class="hint" style="grid-column:1/-1;text-align:center">No photos yet! Take some 📸 on vacation, even under water! 🤿</div>';
+}
+$('albumGrid').addEventListener('click', e => { const b = e.target.closest('[data-ph]'); if (b){ albumSel = +b.dataset.ph; renderAlbum(); } });
+$('albumBack').onclick = () => { albumSel = -1; renderAlbum(); };
+$('albumClose').onclick = () => $('albumBox').classList.remove('open');
+$('albumSave').onclick = () => { const p = album()[albumSel]; if (!p) return; const l = document.createElement('a'); l.href = p.img; l.download = 'dragon-photo-' + new Date(p.at).toISOString().slice(0, 10) + '.jpg'; document.body.appendChild(l); l.click(); l.remove(); };
+$('albumDel').onclick = () => { const a = album(); a.splice(albumSel, 1); saveAlbum(a); albumSel = -1; renderAlbum(); };
+// buttons: in adventures, on the vacation map, and in the city
+const baseRT4 = renderTrip;
+renderTrip = function(){
+  baseRT4();
+  const v = V(), btns = $('tripBody').querySelector('.sg-btns'); if (!btns) return;
+  if (trip.state === 'city' && trip.place === 'adv' && trip.adv) btns.insertAdjacentHTML('afterbegin', `<button class="big" data-pl="advPhoto">📸 Take a picture${v && !v.packed.camera && !v.rentCam ? ' (rent camera 3 🪙)' : ''}</button><button class="big" data-pl="album">🖼️ Album (${album().length})</button>`);
+  else if (trip.state === 'world' && !trip.fly && !plan) btns.insertAdjacentHTML('afterbegin', `<button class="big" data-pl="album">🖼️ Photo album (${album().length})</button>`);
+  else if (trip.state === 'city' && trip.place === 'out' && v && !v.night && !v.done) btns.insertAdjacentHTML('beforeend', `<button class="big" data-pl="album">🖼️ Album (${album().length})</button>`);
+};
+$('tripBody').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.pl === 'advPhoto') takeAdvPhoto(); if (b.dataset.pl === 'album') openAlbum(); });
+// ---------- 🐉🐉 bring friends on vacation ----------
+const MAX_FRIENDS = 3;
+const partySize = () => 1 + ((V() && V().friends) || []).length;
+function friendDragons(){ return pet.dragons.filter(d => !activeD || d.id !== activeD.id); }
+function friendObjs(){ const v = V(); return v && v.friends ? v.friends.map(id => pet.dragons.find(d => d.id === id)).filter(Boolean) : []; }
+const comp = new Map();
+function compState(d){ let c = comp.get(d.id); if (!c){ const N = segs.length, h = segs[0]; c = {segs: Array.from({length: N}, (_, k) => ({x: h.x - 60 - k*6, y: h.y + 30, a: 0})), goal: {x: h.x, y: h.y}, next: 0, ph: Math.random()*6}; comp.set(d.id, c); } return c; }
+function resetComp(){ comp.clear(); }
+// --- choose friends while packing ---
+const baseRTF = renderTrip;
+renderTrip = function(){
+  baseRTF();
+  if (trip.state === 'pack' && plan){
+    plan.friends = plan.friends || [];
+    const fr = friendDragons(), row = fr.length ? fr.map(d => `<button data-fr="${d.id}" class="${plan.friends.includes(d.id) ? 'on' : ''}"><span class="dot" style="background:${d.cfg.body}"></span>${esc(d.cfg.name)}</button>`).join('') : '<small>No other dragons yet.</small>';
+    const msg = $('tripBody').querySelector('.sg-msg');
+    msg.insertAdjacentHTML('afterend', `<div class="sg-msg" style="margin:2px 0"><b>🐉 Who's coming?</b> <small>(up to ${MAX_FRIENDS} friends · food, tours and adventures cost more for more dragons)</small></div><div class="trip-cities">${row}</div>`);
+  }
+};
+$('tripBody').addEventListener('click', e => { const b = e.target.closest('[data-fr]'); if (!b || !plan) return; e.stopImmediatePropagation();
+  plan.friends = plan.friends || []; const id = b.dataset.fr, i = plan.friends.indexOf(id);
+  if (i >= 0) plan.friends.splice(i, 1); else if (plan.friends.length >= MAX_FRIENDS){ talk(`Only ${MAX_FRIENDS} friends can come along! 🐉`); return; } else { plan.friends.push(id); const d = pet.dragons.find(x => x.id === id); talk(`Yay! ${d.cfg.name} is coming too! 🎉`); }
+  renderTrip(); }, true);
+{ const base = leaveHome; leaveHome = function(){ const fr = plan && plan.friends ? [...plan.friends] : []; base(); if (V()){ V().friends = fr; resetComp(); savePet(); } }; }
+// --- everything costs more for more dragons ---
+{ const base = orderDish; orderDish = function(i){ const d = MENUS[trip.city.id][i], n = partySize(); if (!d || n === 1) return base(i);
+    const keep = d[2]; d[2] = keep*n; window.__priceTemp = true; try { base(i); } finally { d[2] = keep; window.__priceTemp = false; } renderTrip(); if (trip.dish) trip.dish.n = n; }; }
+{ const base = startTour; startTour = function(){ const n = partySize(), keep = TOUR_COST; TOUR_COST = keep*n; window.__priceTemp = true; try { base(); } finally { TOUR_COST = keep; window.__priceTemp = false; } renderTrip(); }; }
+{ const base = payHotel; payHotel = function(){ const n = partySize(), keep = HOTEL_COST; HOTEL_COST = keep + (n - 1)*Math.round(keep/2); window.__priceTemp = true; try { return base(); } finally { HOTEL_COST = keep; window.__priceTemp = false; } }; }
+{ const base = startAdv; startAdv = function(key){ const A = ADVENTURES[key], n = partySize(), keep = A.cost; A.cost = keep*n; window.__priceTemp = true; try { base(key); } finally { A.cost = keep; window.__priceTemp = false; } renderTrip(); }; }
+// show the right prices on the buttons
+const baseRTF2 = renderTrip;
+renderTrip = function(){ const n = partySize(), keepT = TOUR_COST, keepH = HOTEL_COST, keepA = {}; for (const k in ADVENTURES) keepA[k] = ADVENTURES[k].cost;
+  const keepM = trip.city && MENUS[trip.city.id] ? MENUS[trip.city.id].map(d => d[2]) : null;
+  if (n > 1 && V() && !window.__priceTemp){ TOUR_COST = keepT*n; HOTEL_COST = keepH + (n - 1)*Math.round(keepH/2); for (const k in ADVENTURES) ADVENTURES[k].cost = keepA[k]*n; if (keepM) MENUS[trip.city.id].forEach((d, i) => d[2] = keepM[i]*n); }
+  try { baseRTF2(); } finally { TOUR_COST = keepT; HOTEL_COST = keepH; for (const k in ADVENTURES) ADVENTURES[k].cost = keepA[k]; if (keepM) MENUS[trip.city.id].forEach((d, i) => d[2] = keepM[i]); }
+  if (trip.state === 'city' && V() && n > 1){ const hud = $('tripHudTxt'); hud.textContent += ' · 🐉×' + n; } };
+// --- the friends move around with you ---
+function steer(c, g, spd){ const h = c.segs[0], dx = g.x - h.x, dy = g.y - h.y, dd = Math.hypot(dx, dy), sp = Math.min(spd, dd*0.05), diff = ((Math.atan2(dy, dx) - h.a + Math.PI*3) % (Math.PI*2)) - Math.PI;
+  if (dd > 3){ h.a += diff*0.1; h.x += Math.cos(h.a)*sp; h.y += Math.sin(h.a)*sp; } const L = SEGLEN(); for (let i = 1; i < c.segs.length; i++){ const p = c.segs[i-1], s = c.segs[i], a = Math.atan2(p.y - s.y, p.x - s.x); s.a = a; s.x = p.x - Math.cos(a)*L; s.y = p.y - Math.sin(a)*L; } }
+function compSleepSpot(k){ const v = V(); if (v.inHotel){ const B = hotelBed(); return {x: Math.max(70, B.x - B.w*0.9 - k*140), y: B.y + 40 + k*24, w: 120}; } return {x: W*0.5 + (k % 2 ? 1 : -1)*(170 + Math.floor(k/2)*160), y: Math.round(H*0.78) + 30, w: 140}; }
+const baseUTF = updateTrip;
+updateTrip = function(){
+  baseUTF();
+  const v = V(); if (!v || trip.state !== 'city' || !(v.friends || []).length) return;
+  friendObjs().forEach((d, k) => { const c = compState(d), me = segs[0];
+    if (v.night){ const S = compSleepSpot(k); try { curlInBed(c, S); } catch(e) {} return; }
+    if (trip.place === 'adv'){ steer(c, {x: me.x - 70 - k*50 + Math.sin(t + k)*20, y: me.y + (k % 2 ? 50 : -50) + Math.cos(t*0.8 + k)*15}, 3.2); return; }
+    if (trip.place === 'restaurant'){ const tx = [0.18, 0.82, 0.18][k] || 0.82, G = Math.round(H*(W < 600 ? 0.42 : 0.55)); steer(c, {x: W*tx + 30, y: G - 10 - (k === 2 ? 60 : 0)}, 3); return; }
+    if (trip.place === 'tour') return;
+    if (t > c.next){ c.next = t + 2.5 + Math.random()*3; c.goal = {x: Math.max(60, Math.min(W - 60, me.x + (Math.random() - .5)*W*0.6)), y: Math.max(80, Math.min(H*0.62, me.y + (Math.random() - .5)*200))}; }
+    steer(c, c.goal, 3);
+  });
+};
+function drawComp(d, c, sleeping){
+  const keep = {cfg, segs, side, asleep, roaming, firing, pepperUntil, jawUntil, floorY, happy: pet.happy, clean: pet.clean, sleeping: pet.sleeping};
+  window.__compDraw = true; cfg = {...d.cfg}; segs = c.segs; side = Math.cos(c.segs[0].a) >= 0 ? 1 : -1; asleep = !!sleeping; roaming = !sleeping; firing = false; pepperUntil = 0; jawUntil = 0; floorY = H*3; pet.happy = 90; pet.clean = 100; pet.sleeping = !!sleeping;
+  try { drawDragon(); } finally { window.__compDraw = false; cfg = keep.cfg; segs = keep.segs; side = keep.side; asleep = keep.asleep; roaming = keep.roaming; firing = keep.firing; pepperUntil = keep.pepperUntil; jawUntil = keep.jawUntil; floorY = keep.floorY; pet.happy = keep.happy; pet.clean = keep.clean; pet.sleeping = keep.sleeping; }
+}
+const baseDTF = drawTrip;
+drawTrip = function(){
+  baseDTF();
+  const v = V(); if (!v || !(v.friends || []).length) return;
+  const fr = friendObjs();
+  if (trip.state === 'world'){ if (trip.fly){ /* little dragons follow on the map */ const F = trip.fly, a = ll(F.from.lon, F.from.lat), b = ll(F.to.lon, F.to.lat), u = Math.max(0, Math.min(1, (t - F.t0)/F.dur)); fr.forEach((d, k) => { const uu = Math.max(0, u - 0.06*(k + 1)), mx = (a.x + b.x)/2, my = Math.min(a.y, b.y) - Math.hypot(b.x - a.x, b.y - a.y)*0.3; const x = (1-uu)*(1-uu)*a.x + 2*(1-uu)*uu*mx + uu*uu*b.x, y = (1-uu)*(1-uu)*a.y + 2*(1-uu)*uu*my + uu*uu*b.y; ctx.font = '22px system-ui'; ctx.textAlign = 'center'; ctx.fillText('🐉', x, y - 12); }); } return; }
+  if (trip.state !== 'city') return;
+  if (trip.place === 'tour'){ const bx = W*0.5 + Math.sin(t*0.6)*20, by = H - (W < 600 ? 300 : 210); ctx.font = '30px system-ui'; ctx.textAlign = 'center'; fr.forEach((d, k) => ctx.fillText('🐉', bx - 60 + k*40 + (k >= 1 ? 40 : 0), by - 30 + Math.sin(t*3 + k)*2)); return; }
+  fr.forEach((d, k) => { const c = compState(d);
+    if (v.night){ const S = compSleepSpot(k), col = d.cfg.body || '#4cc9f0'; ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(S.x, S.y + 18, S.w*0.55, 8, 0, 0, 7); ctx.fill(); ctx.fillStyle = shade(col, -0.15); rr(S.x - S.w/2, S.y - 14, S.w, 32, 15); ctx.fill(); ctx.fillStyle = shade(col, 0.25); rr(S.x - S.w/2 + S.w*0.3, S.y - 11, S.w*0.68, 26, 12); ctx.fill(); ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.ellipse(S.x - S.w*0.35, S.y, S.w*0.13, 11, -0.1, 0, 7); ctx.fill(); }
+    drawComp(d, c, v.night);
+    const h = c.segs[0]; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.fillStyle = '#fff'; if (!v.night){ ctx.strokeText(d.cfg.name, h.x, h.y - 32); ctx.fillText(d.cfg.name, h.x, h.y - 32); }
+    if (trip.place === 'adv' && ADVENTURES[trip.adv.key].kind !== 'land'){ ctx.font = '18px system-ui'; ctx.fillText('🤿', h.x, h.y - 4); }
+  });
+};
+// friends chat on vacation and come home happy
+setInterval(() => { const v = V(); if (mode !== 'trip' || !v || v.night || trip.state !== 'city' || !(v.friends || []).length || Math.random() < 0.6) return;
+  const d = pick(friendObjs()), c = comp.get(d.id); if (!c) return; const lines = trip.place === 'adv' ? ['Look at that one! 😮', 'This is SO cool! 🤩', 'Wait for me! 🫧'] : trip.place === 'restaurant' ? ['Yum yum! 😋', 'Can I try yours? 🍴', 'Best food ever!'] : ['I love it here! 💖', 'Let\'s take a picture together! 📸', 'Best vacation ever! 🎉', 'Where should we go next? 🗺️'];
+  const line = pick(lines); say(c.segs[0].x, c.segs[0].y - 50, `${d.cfg.name}: ${line}`, 15); try { speak(line.replace(/[^\w\s!?',.]/g, ''), {id: d.id, size: d.cfg.size}); } catch(e) {} }, 9000);
+{ const base = finishVacation; finishVacation = function(){ const fr = friendObjs(); for (const d of fr){ d.stats.happy = Math.min(100, (d.stats.happy || 50) + 25); } resetComp(); base(); }; }
+// photos show everyone (they're drawn on the canvas already)
+
+// 🗣️ voice picker
+$('soundBtn').id && $('seasonBtn').parentElement.insertAdjacentHTML('beforebegin', `<div class="row2" style="align-items:center;flex-wrap:wrap;gap:6px;justify-content:center"><span>🗣️ Dragon voice:</span><select id="voicePick" style="padding:6px;border-radius:8px;max-width:200px"></select><button id="voiceTest">▶ Test</button></div>`);
+function renderVoicePick(){ const el = $('voicePick'); if (!el) return; let cur = ''; try { cur = localStorage.getItem('dragonVoice') || ''; } catch(e) {}
+  el.innerHTML = '<option value="">✨ Automatic</option>' + ALL_VOICES.map(v => `<option value="${esc(v.name)}" ${v.name === cur ? 'selected' : ''}>${esc(v.name)}</option>`).join(''); }
+$('voicePick').onchange = () => { try { localStorage.setItem('dragonVoice', $('voicePick').value); } catch(e) {} loadVoices(); talk("What's your favorite food? Mine is spicy peppers!"); };
+$('voiceTest').onclick = () => talk("What's your favorite food? Mine is spicy peppers!");
+renderVoicePick();
+// ---------- 🐉 Dragon-speak: the game's very own made-up dragon voices (no computer voice needed!) ----------
+const FORMANT = {a: [730, 1090], e: [530, 1840], i: [300, 2200], o: [570, 840], u: [320, 870], y: [300, 2100]};
+function dragonVoiceOn(){ try { return (localStorage.getItem('dragonVoice') || '').startsWith('🐉'); } catch(e) { return false; } }
+function dragonVoiceStyle(){ try { return (localStorage.getItem('dragonVoice') || '🐉 Dragon-speak').replace('🐉 ', ''); } catch(e) { return 'Dragon-speak'; } }
+function dragonSpeak(text, who, then){
+  const done = () => { if (then){ const f = then; then = null; f(); } };
+  if (!audioOn() || SOUND !== 'all' || !AC){ setTimeout(done, 1200); return; }
+  const id = (who && who.id) || 'me', size = (who && who.size) || 1, fam = pet.dragons.findIndex(d => d.id === id), n = fam >= 0 ? fam : hashStr(id);
+  const style = dragonVoiceStyle(), deep = style === 'Big & deep', squeak = style === 'Tiny & squeaky';
+  const base = (deep ? 95 : squeak ? 340 : 190) * [1, 1.12, 0.9, 1.22, 1.05, 0.95][n % 6] / Math.max(0.75, Math.min(1.4, size));
+  const words = cleanSpeech(text).replace(/[^a-z\s.,!?']/gi, '').toLowerCase(), q = /\?\s*$/.test(text), ex = /!/.test(text);
+  let at = AC.currentTime + 0.05, i = 0; const step = squeak ? 0.062 : deep ? 0.085 : 0.072;
+  const out = AC.createGain(); out.gain.value = 0.9; out.connect(master);
+  for (const ch of words){
+    i++;
+    if (ch === ' '){ at += step*0.6; continue; }
+    if (/[.,!?]/.test(ch)){ at += step*2.2; continue; }
+    const vow = FORMANT[ch], code = ch.charCodeAt(0), wob = 1 + (((code*7) % 11) - 5)*0.025;
+    const rise = q ? 1 + 0.35*Math.min(1, i/Math.max(1, words.length)) : 1, pitch = base*wob*rise*(ex ? 1.08 : 1);
+    if (!vow && i % 2) continue;   // skip every other consonant so it sounds like quick dragon babble
+    const dur = vow ? step*1.25 : step*0.7;
+    const o = AC.createOscillator(), g = AC.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(pitch, at); o.frequency.linearRampToValueAtTime(pitch*(vow ? 1.04 : 0.97), at + dur);
+    const f1 = AC.createBiquadFilter(), f2 = AC.createBiquadFilter(), mix = AC.createGain(); const F = vow || FORMANT[['a', 'e', 'i', 'o', 'u'][code % 5]];
+    f1.type = 'bandpass'; f1.frequency.value = F[0]*(squeak ? 1.3 : deep ? 0.8 : 1); f1.Q.value = 6; f2.type = 'bandpass'; f2.frequency.value = F[1]*(squeak ? 1.3 : deep ? 0.8 : 1); f2.Q.value = 8;
+    o.connect(f1); o.connect(f2); f1.connect(mix); f2.connect(mix); const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; mix.connect(lp).connect(g); g.connect(out);
+    const peak = vow ? 0.55 : 0.3; g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.start(at); o.stop(at + dur + 0.02);
+    if (!vow && /[sfhxzct]/.test(ch)){ try { noise(dur*0.8, 4200, 0.6, 0.04, at - AC.currentTime, 'highpass'); } catch(e) {} }
+    at += vow ? step : step*0.75;
+  }
+  // a happy little dragon purr at the end
+  setTimeout(done, Math.max(400, (at - AC.currentTime)*1000 + 250));
+}
+{ const base = speak; speak = function(text, who, then){ if (dragonVoiceOn()) return dragonSpeak(text, who, then); return base(text, who, then); }; }
+// add the dragon voices to the voice picker
+{ const base = renderVoicePick; renderVoicePick = function(){ base(); const el = $('voicePick'); if (!el) return; let cur = ''; try { cur = localStorage.getItem('dragonVoice') || ''; } catch(e) {}
+    const ours = ['🐉 Dragon-speak', '🐉 Big & deep', '🐉 Tiny & squeaky'];
+    el.insertAdjacentHTML('afterbegin', `<optgroup label="🐉 Real dragon voices (made by the game)">${ours.map(v => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v}</option>`).join('')}</optgroup>`);
+    if (ours.includes(cur)) el.value = cur; }; }
+renderVoicePick();
+// ---------- 🎙️ My dragon voice: record your own voice saying phrases, and the dragons use them ----------
+const MYV = [
+  ['hello', '👋 "Hi!"', /\b(hi|hello|hey|howdy)\b/], ['yum', '😋 "Yum!"', /\b(yum|yummy|delicious|tasty|chomp|munch)/], ['hungry', '🍖 "I\'m hungry!"', /\b(hungry|food|eat|snack)/],
+  ['thirsty', '💧 "I\'m thirsty!"', /\b(thirst|drink|water)/], ['sleepy', '😴 "I\'m sleepy…"', /\b(sleepy|tired|yawn|nap|bedtime)/], ['night', '🌙 "Good night!"', /good night/],
+  ['morning', '☀️ "Good morning!"', /good morning|morning/], ['play', '⚽ "Let\'s play!"', /\b(play|game|race|tag|ball)/], ['love', '💖 "I love you!"', /\blove\b|\bhug/],
+  ['thanks', '🙏 "Thank you!"', /\bthank/], ['wow', '🤩 "Wow!"', /\b(wow|amazing|cool|awesome|pretty|beautiful)/], ['bath', '🛁 "Bath time!"', /\b(bath|splash|wash|bubble|clean)/],
+  ['yay', '🎉 "Yay!"', /\b(yay|hooray|woohoo|whee|wheee|yippee)/], ['oops', '😮 "Oh no!"', /\b(oops|ouch|oh no|uh oh|brrr|sick)/]
+];
+const myv = {db: null, bufs: {}, have: {}, rec: null};
+function myvDB(){ return new Promise(res => { if (myv.db) return res(myv.db); try { const r = indexedDB.open('dragonVoiceClips', 1); r.onupgradeneeded = () => r.result.createObjectStore('clips'); r.onsuccess = () => { myv.db = r.result; res(myv.db); }; r.onerror = () => res(null); } catch(e) { res(null); } }); }
+async function myvGet(id){ if (!id) return null; const db = await myvDB(); if (!db) return null; return new Promise(res => { const q = db.transaction('clips').objectStore('clips').get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); }
+async function myvPut(id, blob){ const db = await myvDB(); if (!db) return; return new Promise(res => { const tx = db.transaction('clips', 'readwrite'); blob ? tx.objectStore('clips').put(blob, id) : tx.objectStore('clips').delete(id); tx.oncomplete = res; tx.onerror = res; }); }
+async function myvLoadAll(){ for (const [id] of MYV){ const b = await myvGet(id); myv.have[id] = !!b; delete myv.bufs[id]; } }
+async function myvBuffer(id){ if (myv.bufs[id]) return myv.bufs[id]; const b = await myvGet(id); if (!b || !AC) return null; try { myv.bufs[id] = await AC.decodeAudioData(await b.arrayBuffer()); } catch(e) { return null; } return myv.bufs[id]; }
+function myvOn(){ try { return localStorage.getItem('dragonVoice') === '🎙️ My recorded voice'; } catch(e) { return false; } }
+function myvMatch(text){ const s = text.toLowerCase(); for (const [id, , re] of MYV) if (myv.have[id] && re.test(s)) return id; return null; }
+async function myvPlay(id, who, then){
+  const done = () => { if (then){ const f = then; then = null; f(); } };
+  const buf = await myvBuffer(id); if (!buf || !audioOn()){ setTimeout(done, 1200); return; }
+  const did = (who && who.id) || 'me', size = (who && who.size) || 1, fam = pet.dragons.findIndex(d => d.id === did), n = fam >= 0 ? fam : hashStr(did);
+  let dragonish = true; try { dragonish = localStorage.getItem('dragonVoiceShift') !== 'off'; } catch(e) {}
+  const rate = dragonish ? [1.18, 1.3, 1.1, 1.38, 1.24, 1.14][n % 6] / Math.max(0.8, Math.min(1.3, size)) : 1;
+  const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = buf; s.playbackRate.value = rate; g.gain.value = 1.4; s.connect(g).connect(master); s.start();
+  s.onended = () => setTimeout(done, 150);
+}
+{ const base = speak; speak = function(text, who, then){
+    if (myvOn()){ const id = myvMatch(text || ''); if (id) return myvPlay(id, who, then); try { sfx.chirp(); } catch(e) {} if (then) setTimeout(() => { const f = then; then = null; f(); }, 1400); return; }
+    return base(text, who, then); }; }
+// the recording studio
+document.body.insertAdjacentHTML('beforeend', `<div id="studio" class="overlay"><div class="box" style="max-width:560px"><h2>🎙️ Record your dragon's voice</h2>
+  <p class="hint">Tap <b>● Record</b>, say the words, and it stops by itself after 2 seconds (or tap ■). Your dragons will say these when they talk!</p>
+  <div id="studioList" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto"></div>
+  <div class="row2"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="studioShift" checked> 🐉 Make it sound like a dragon (higher and faster)</label></div>
+  <div class="row2"><button id="studioUse" class="primary">✅ Use my voice for the dragons</button><button id="studioClose">Done</button></div><div id="studioMsg" class="hint"></div></div></div>`);
+function renderStudio(){
+  $('studioList').innerHTML = MYV.map(([id, label]) => `<div style="display:flex;align-items:center;gap:6px;justify-content:space-between;background:rgba(255,255,255,.06);padding:6px 8px;border-radius:10px">
+    <span>${myv.have[id] ? '✅' : '⬜'} ${label}</span><span style="display:flex;gap:4px"><button data-rec="${id}">${myv.rec && myv.rec.id === id ? '■ Stop' : '● Record'}</button><button data-play="${id}" ${myv.have[id] ? '' : 'disabled'}>▶</button><button data-del="${id}" ${myv.have[id] ? '' : 'disabled'}>🗑️</button></span></div>`).join('');
+  try { $('studioShift').checked = localStorage.getItem('dragonVoiceShift') !== 'off'; } catch(e) {}
+  const n = Object.values(myv.have).filter(Boolean).length; $('studioMsg').textContent = `${n} of ${MYV.length} recorded${myvOn() ? ' · 🎙️ The dragons are using your voice!' : ''}`;
+}
+async function startRec(id){
+  if (myv.rec){ stopRec(); return; }
+  unlockAudio();
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({audio: true}); } catch(e) { $('studioMsg').textContent = '🎤 The microphone is blocked. Click Allow when it asks (or check the 🔒 next to the address).'; return; }
+  const type = ['audio/webm', 'audio/mp4', 'audio/ogg'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  const mr = new MediaRecorder(stream, type ? {mimeType: type} : undefined), chunks = [];
+  mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  mr.onstop = async () => { stream.getTracks().forEach(t => t.stop()); const blob = new Blob(chunks, {type: mr.mimeType || type || 'audio/webm'}); await myvPut(id, blob); myv.have[id] = true; delete myv.bufs[id]; myv.rec = null; renderStudio(); myvPlay(id, meVoice()); };
+  myv.rec = {id, mr, timer: setTimeout(stopRec, 2200)}; mr.start(); renderStudio(); $('studioMsg').textContent = '🔴 Recording… say it now!';
+}
+function stopRec(){ if (!myv.rec) return; clearTimeout(myv.rec.timer); try { myv.rec.mr.stop(); } catch(e) { myv.rec = null; renderStudio(); } }
+$('studioList').addEventListener('click', async e => { const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.rec) startRec(b.dataset.rec);
+  if (b.dataset.play){ unlockAudio(); myvPlay(b.dataset.play, meVoice()); }
+  if (b.dataset.del){ await myvPut(b.dataset.del, null); myv.have[b.dataset.del] = false; delete myv.bufs[b.dataset.del]; renderStudio(); } });
+$('studioShift').onchange = () => { try { localStorage.setItem('dragonVoiceShift', $('studioShift').checked ? 'on' : 'off'); } catch(e) {} };
+$('studioUse').onclick = () => { try { localStorage.setItem('dragonVoice', '🎙️ My recorded voice'); } catch(e) {} renderVoicePick(); renderStudio(); talk('Yay! I love you! Thank you!'); };
+$('studioClose').onclick = () => { stopRec(); $('studio').classList.remove('open'); };
+$('voiceTest').insertAdjacentHTML('afterend', '<button id="studioBtn">🎙️ Record my voice</button>');
+$('studioBtn').onclick = async () => { await myvLoadAll(); renderStudio(); $('studio').classList.add('open'); };
+{ const base = renderVoicePick; renderVoicePick = function(){ base(); const el = $('voicePick'); if (!el) return; let cur = ''; try { cur = localStorage.getItem('dragonVoice') || ''; } catch(e) {}
+    el.insertAdjacentHTML('afterbegin', `<option value="🎙️ My recorded voice" ${cur === '🎙️ My recorded voice' ? 'selected' : ''}>🎙️ My recorded voice</option>`); if (cur === '🎙️ My recorded voice') el.value = cur; }; }
+myvLoadAll().then(renderVoicePick);
+
 // The game moves in fixed steps of 1/60 second by the real clock, so it runs at the same speed
 // on every screen (60 Hz, 120 Hz iPads and phones, or slower devices).
 const STEP = 1000/60; let lastTs = performance.now(), acc = 0;
@@ -7153,7 +8534,7 @@ const STEP = 1000/60; let lastTs = performance.now(), acc = 0;
 document.addEventListener('visibilitychange', () => { if (document.hidden){ savePet(); save(); } });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 // 🔄 auto-update: whenever the app is opened or comes back, check Netlify for a newer version and reload into it
-const APP_BUILD = '26';
+const APP_BUILD = '27';
 function checkForUpdate(){
   if (!location.protocol.startsWith('http') || !navigator.onLine) return;
   fetch('./index.html?check=' + Date.now(), {cache: 'no-store'}).then(r => r.text()).then(html => {
