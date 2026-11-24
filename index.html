@@ -3558,6 +3558,8 @@ function speak(text, who, then){
     v1.pitch = Math.min(1.5, basePitch*0.92 + (big ? 0.12 : ex ? 0.06 : 0)); v1.rate = Math.min(1.08, baseRate + (ex ? 0.03 : 0)); v1.volume = 1;
     // some voices (like Moira and Tessa) glitch when their pitch is raised, so they talk at their normal pitch
     if (u.voice && (/Moira|Tessa|Karen|Fiona|Daniel|Rishi|Veena|Kate|Serena/i.test(u.voice.name) || localStorage.getItem('dragonVoiceHigh') === 'off')){ v1.pitch = 1; v1.rate = 1; }
+    // big dragons talking along with my recorded voice: a bit higher and peppier (but not as high as mine)
+    if (window.__mixBoost){ v1.pitch = 1.4; v1.rate = Math.max(v1.rate, 1.05); }
     const utts = [v1];
     if (!utts.length) utts.push(u);
     for (const v of utts){ window.__talkUntil = Math.max(Date.now(), window.__talkUntil || 0) + 500 + v.text.length*75; const left = () => {}; v.onend = left; v.onerror = () => { done(); }; }
@@ -8520,7 +8522,7 @@ function myvClean(buf){
       const t = String(text || ''), first = (t.match(/^[^!.?…]*[!.?…]+/) || [t])[0], rest = t.slice(first.length).trim();
       const id = first.split(/\s+/).length <= 6 ? myvMatch(first) : null;
       if (!id) return base(text, who, then);
-      if (rest.split(/\s+/).filter(w => /\w/.test(w)).length >= 2) return myvPlay(id, who, () => base(rest, who, then));
+      if (rest.split(/\s+/).filter(w => /\w/.test(w)).length >= 2) return myvPlay(id, who, () => { window.__mixBoost = true; try { base(rest, who, then); } finally { window.__mixBoost = false; } });
       return myvPlay(id, who, then); }
     return base(text, who, then); }; }
 // the recording studio
@@ -8577,6 +8579,30 @@ $('studioBtn').onclick = async () => { await myvLoadAll(); renderStudio(); $('st
     el.insertAdjacentHTML('afterbegin', `<option value="🎙️ My recorded voice" ${cur === '🎙️ My recorded voice' ? 'selected' : ''}>🎙️ My recorded voice</option>`); if (cur === '🎙️ My recorded voice') el.value = cur; }; }
 myvLoadAll().then(renderVoicePick);
 
+// ---------- ⭐ Care for everyone: one button for when you're in a rush ----------
+$('sleepBtn').insertAdjacentHTML('afterend', '<button id="careAllBtn" title="Feed, water and clean every dragon at once">⭐ Care for all</button>');
+function careForAll(){
+  syncActive();
+  const n = pet.dragons.length, cost = (typeof isHard === 'function' && isHard()) ? 3 * n : 0;
+  const h = segs[0];
+  if (cost && (pet.coins || 0) < cost){ say(h.x, h.y - 50, `Quick care costs 🪙${cost} in Hard mode. Not enough coins!`, 16); return; }
+  if (cost){ window.__noTax = true; pet.coins -= cost; window.__noTax = false; }
+  let sick = 0;
+  for (const d of pet.dragons){ const st = d.stats;
+    st.full = 100; st.water = 100; st.clean = 100; st.happy = Math.max(st.happy || 0, 85); st.heat = 0; st.pending = []; if (st.sick) sick++; }
+  if (activeD){ for (const k of STAT_KEYS) if (activeD.stats[k] !== undefined) pet[k] = activeD.stats[k]; }
+  poops.length = 0;
+  try { burstConfetti(h.x, h.y, 50); sfx.coin(); } catch(e) {}
+  savePet(); syncUI(); try { renderRooms(); } catch(e) {}
+  const tired = pet.dragons.filter(d => (d.stats.energy || 0) < 25 && !d.stats.sleeping).length;
+  let msg = `⭐ All ${n} dragons are fed, watered and clean!`;
+  if (cost) msg += ` (🪙${cost})`;
+  if (sick) msg += ` 🤒 ${sick} still sick: visit the vet!`;
+  if (tired) msg += ` 😴 ${tired} sleepy: put them to bed!`;
+  say(h.x, h.y - 50, msg, 16); setTimeout(() => talk('Thank you! I love you!'), 900);
+}
+$('careAllBtn').onclick = () => { unlockAudio(); careForAll(); };
+
 // The game moves in fixed steps of 1/60 second by the real clock, so it runs at the same speed
 // on every screen (60 Hz, 120 Hz iPads and phones, or slower devices).
 const STEP = 1000/60; let lastTs = performance.now(), acc = 0;
@@ -8589,7 +8615,7 @@ const STEP = 1000/60; let lastTs = performance.now(), acc = 0;
 document.addEventListener('visibilitychange', () => { if (document.hidden){ savePet(); save(); } });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 // 🔄 auto-update: whenever the app is opened or comes back, check Netlify for a newer version and reload into it
-const APP_BUILD = '31';
+const APP_BUILD = '33';
 function checkForUpdate(){
   if (!location.protocol.startsWith('http') || !navigator.onLine) return;
   fetch('./index.html?check=' + Date.now(), {cache: 'no-store'}).then(r => r.text()).then(html => {
